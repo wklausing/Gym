@@ -1,1 +1,1 @@
-from sabre.env import Sabre
+from sabre.env.sabre import Sabre

@@ -1,3 +1,5 @@
 import gymnasium as gym
 
-env = gym.make("sabre/env:Sabre-v0")
+import gymsabre
+
+env = gym.make("Sabre-v0")
