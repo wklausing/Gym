@@ -1,1 +1,1 @@
-pip install -e sabre
+pip install -e gymsabre

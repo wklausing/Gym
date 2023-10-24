@@ -51,7 +51,7 @@ class Sabre(gym.Env):
                 , "money": self.money}
 
     def _get_info(self):
-        return 'Foo Bar Info'
+        return {}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
