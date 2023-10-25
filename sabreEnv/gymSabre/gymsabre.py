@@ -4,14 +4,14 @@ import gymnasium as gym
 from gymnasium import spaces
 
 class GymSabreEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human"]}
 
-    # Variables
+    # Env variables
     grid_size = 100 * 100
-    time = 0
+    time = np.array(0, dtype='int')
 
     # CP-Agent variables
-    money = 100
+    money = np.array(100, dtype='int')
 
     # Client variables
     clientCount = 10
@@ -57,8 +57,8 @@ class GymSabreEnv(gym.Env):
         super().reset(seed=seed)
         
         # Reset variables
-        self.time = 0
-        self.money = 100_000
+        self.time = np.array([0], dtype='int')
+        self.money = np.array([100], dtype='int')
 
         # Reset clients
         self.clientsLocations = self.np_random.integers(0, self.grid_size, size=self.clientCount, dtype=int)
@@ -73,35 +73,45 @@ class GymSabreEnv(gym.Env):
 
         observation = self._get_obs()
         info = self._get_info()
-
+        
         return observation, info
         #return self.state, reward, terminated, truncated, {}
 
     def step(self, action):
+        time = self.time.item()
+        money = self.money.item()
+        
         reward = 0
 
         # An episode is done when the CP is out of money or time is over
-        terminated = self.money <= 0 or self.time >= 100_000
+        terminated = money <= 0 or time >= 100_000
 
         if not terminated:
             # Buy contigent
             buyContigent = action['buyContigent']
+            print(buyContigent)
             for index, edgeServer in enumerate(self.edgeServers):
-                self.money = edgeServer.sellContigent(buyContigent[index])
+                print(index, edgeServer)
+                money = edgeServer.sellContigent(money, buyContigent[index])
+            #quit()
             
             # Steer clients
             steerClient = action['steerClient']
             for index, client in enumerate(self.clients):
                 client.edgeServer = self.edgeServers[steerClient[index]]
-                self.money += client.fetchContent()
+                money += client.fetchContent()
                 reward += client.fetchContent()
 
         observation = self._get_obs()
         info = self._get_info()
 
-        self.time += 1
+        time += 1
+
+        self.time = np.array([time], dtype='int')
+        self.money = np.array([money], dtype='int')
 
         return observation, reward, terminated, False, info
+
 
 class Client:
 
@@ -123,6 +133,7 @@ class Client:
     def edgeServer(self, edgeServer):
         self._edgeServer = edgeServer
 
+
 class EdgeServer:
 
     def __init__(self, location, price=1):
@@ -130,9 +141,13 @@ class EdgeServer:
         self.price = price
         self.soldContigent = 0
 
-    def sellContigent(self, amount):
-        self.soldContigent += amount
-        return amount * self.price
+    def sellContigent(self, cpMoney, amount):
+        if cpMoney >= amount * self.price:
+            cpMoney -= amount * self.price
+            self.soldContigent += amount
+            return amount * self.price
+        else:
+            return cpMoney
 
 if __name__ == "__main__":
     env = GymSabreEnv(render_mode="human")
