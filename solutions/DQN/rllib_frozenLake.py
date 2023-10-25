@@ -1,14 +1,7 @@
-from sabreEnv import GymSabreEnv
-import gymnasium as gym
-
 import gymnasium as gym
 from ray.rllib.algorithms.dqn.dqn import DQNConfig
-from ray import tune
 
-
-env = gym.make("gymsabre-v0")
-env_name = "gymsabre-v0"
-tune.register_env(env_name, lambda cfg: env)
+env_name = "FrozenLake-v1"
 
 config = (
     DQNConfig()
