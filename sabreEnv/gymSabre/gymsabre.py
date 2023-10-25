@@ -3,8 +3,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-
-class Sabre(gym.Env):
+class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     # Variables
@@ -76,6 +75,7 @@ class Sabre(gym.Env):
         info = self._get_info()
 
         return observation, info
+        #return self.state, reward, terminated, truncated, {}
 
     def step(self, action):
         reward = 0
@@ -135,7 +135,7 @@ class EdgeServer:
         return amount * self.price
 
 if __name__ == "__main__":
-    env = Sabre(render_mode="human")
+    env = GymSabreEnv(render_mode="human")
     observation, info = env.reset()
 
     for _ in range(1000):
