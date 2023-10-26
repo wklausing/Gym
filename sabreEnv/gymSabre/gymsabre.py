@@ -58,16 +58,18 @@ class GymSabreEnv(gym.Env):
         
         # Reset variables
         self.time = np.array([0], dtype='int')
-        self.money = np.array([100], dtype='int')
+        self.money = np.array([100_000], dtype='int')
 
         # Reset clients
         self.clientsLocations = self.np_random.integers(0, self.grid_size, size=self.clientCount, dtype=int)
+        self.clients = []
         for c in range(self.clientCount):
             self.clients.append(Client(self.clientsLocations[c]))
 
         # Reset edge servers
         self.edgeServerLocations = self.np_random.integers(0, self.grid_size, size=self.edgeServerCount, dtype=int)
-        self.edgeServerPrices = self.np_random.uniform(0, 10, size=self.edgeServerCount)
+        self.edgeServerPrices = np.round(np.random.uniform(0, 10, size=self.edgeServerCount), 2)
+        self.edgeServers = []
         for e in range(self.edgeServerCount):
             self.edgeServers.append(EdgeServer(self.edgeServerLocations[e], self.edgeServerPrices[e]))
 
@@ -89,11 +91,9 @@ class GymSabreEnv(gym.Env):
         if not terminated:
             # Buy contigent
             buyContigent = action['buyContigent']
-            print(buyContigent)
+
             for index, edgeServer in enumerate(self.edgeServers):
-                print(index, edgeServer)
                 money = edgeServer.sellContigent(money, buyContigent[index])
-            #quit()
             
             # Steer clients
             steerClient = action['steerClient']
@@ -142,14 +142,18 @@ class EdgeServer:
         self.soldContigent = 0
 
     def sellContigent(self, cpMoney, amount):
+        leftOverMoney = 0
         if cpMoney >= amount * self.price:
             cpMoney -= amount * self.price
             self.soldContigent += amount
-            return amount * self.price
+            leftOverMoney = amount * self.price
         else:
-            return cpMoney
+            leftOverMoney = cpMoney
+        return round(leftOverMoney, 2)
+
 
 if __name__ == "__main__":
+    print('Start!')
     env = GymSabreEnv(render_mode="human")
     observation, info = env.reset()
 
@@ -161,3 +165,4 @@ if __name__ == "__main__":
             observation, info = env.reset()
 
     env.close()
+    print('Done!')

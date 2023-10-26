@@ -1,13 +1,21 @@
-from sabreEnv import GymSabreEnv
-import gymnasium as gym
-
 import gymnasium as gym
 from ray.rllib.algorithms.dqn.dqn import DQNConfig
+
+from sabreEnv import GymSabreEnv
 from ray import tune
 
+from gymnasium.wrappers import FlattenObservation
 
-env = gym.make("gymsabre-v0")
 env_name = "gymsabre-v0"
+env = gym.make("gymsabre-v0")
+print(env.observation_space.sample())
+env = FlattenObservation(env)
+print('Here is the new observation space:')
+print(env.observation_space.sample())
+
+
+
+
 tune.register_env(env_name, lambda cfg: env)
 
 config = (
