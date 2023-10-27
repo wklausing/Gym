@@ -37,12 +37,16 @@ class GymSabreEnv(gym.Env):
         )
 
         # Action space contains ability to buy contigent from edge-server and to steer client to another edge-server.
-        self.action_space = spaces.Dict(
-            {
-                'buyContigent': gym.spaces.MultiDiscrete([self.grid_size] * self.edgeServerCount),
-                'steerClient': gym.spaces.MultiDiscrete([self.edgeServerCount] * self.clientCount),
-            }
-        )
+        # self.action_space = spaces.Dict(
+        #     {
+        #         'buyContigent': gym.spaces.MultiDiscrete([self.grid_size] * self.edgeServerCount),
+        #         'steerClient': gym.spaces.MultiDiscrete([self.edgeServerCount] * self.clientCount),
+        #     }
+        # )
+
+        self.buyContingent = [100] * self.edgeServerCount
+        self.steerClient = [self.edgeServerCount] * self.clientCount
+        self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.steerClient)
 
     def _get_obs(self):
         return {"clientsLocations": self.clientsLocations, "edgeServerLocations": self.edgeServerLocations
@@ -90,13 +94,15 @@ class GymSabreEnv(gym.Env):
 
         if not terminated:
             # Buy contigent
-            buyContigent = action['buyContigent']
+            #buyContigent = action['buyContigent']
+            buyContigent = action[:len(self.buyContingent)] 
 
             for index, edgeServer in enumerate(self.edgeServers):
                 money = edgeServer.sellContigent(money, buyContigent[index])
             
             # Steer clients
-            steerClient = action['steerClient']
+            #steerClient = action['steerClient']
+            steerClient = action[len(self.buyContingent):] 
             for index, client in enumerate(self.clients):
                 client.edgeServer = self.edgeServers[steerClient[index]]
                 money += client.fetchContent()

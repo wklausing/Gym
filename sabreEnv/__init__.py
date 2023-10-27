@@ -2,6 +2,7 @@
 from sabreEnv.gymSabre.gymsabre import GymSabreEnv
 from sabreEnv.sabre.fooBarSabre import FooSabre
 from sabreEnv.utils.fooBarUtils import FooUtils
+from sabreEnv.wrappers.fooWrapper import SabreActionWrapper
 
 
 from gymnasium.envs.registration import (
