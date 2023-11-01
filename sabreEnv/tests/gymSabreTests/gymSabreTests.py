@@ -24,6 +24,26 @@ class TestMainFunction(unittest.TestCase):
             totalClientBandwidth += client.bandwidth
 
         self.assertEqual(totalCdnBandwidth, totalClientBandwidth)
+
+    def testStaticManifest(self):
+        '''
+        Testing the static manifest switching. 
+        '''
+        gymSabre = GymSabreEnv(clients=50, edgeServers=2)
+        gymSabre.reset()
+        gymSabre.edgeServers[0].soldContigent = 100
+        gymSabre.edgeServers[1].soldContigent = 100
+
+        env = GymSabreEnv()
+        observation, info = env.reset()
+
+        for _ in range(1000):
+            action = env.action_space.sample()  # agent policy that uses the observation and info
+            observation, reward, terminated, truncated, info = env.step(action)
+            if terminated or truncated or gymSabre.edgeServers[0].soldContigent == 0 or gymSabre.edgeServers[1].soldContigent == 0:
+                break
+        env.close()
+        self.assertEqual(gymSabre.edgeServers[0].soldContigent, gymSabre.edgeServers[1].soldContigent)
                          
 
 if __name__ == '__main__':
