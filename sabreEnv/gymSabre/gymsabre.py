@@ -76,7 +76,7 @@ class GymSabreEnv(gym.Env):
         self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(self.clientsLocations[c], random.choice(self.edgeServers)))
+            self.clients.append(Client(self.clientsLocations[c], self.edgeServers))
 
         observation = self._get_obs()
         info = self._get_info()
@@ -120,17 +120,23 @@ class GymSabreEnv(gym.Env):
 
 class Client:
 
-    def __init__(self, location, edgeServer=None):
+    manifest = []
+
+    def __init__(self, location, manifest=[]):
         self.location = location
-        self.edgeServer = edgeServer
-        edgeServer.addClient(self)
+        self.manifest = manifest
+        self.idxCDN = 0
+        self.edgeServer = manifest[self.idxCDN]
+        self.edgeServer.addClient(self)
         self.stillStreaming = True
 
     def fetchContent(self):
         if self.edgeServer.soldContigent > 0:
             self.edgeServer.soldContigent -= 1
             return 1
-        else: 
+        else:
+            self.idxCDN += 1 
+            self.idxCDN = self.idxCDN % len(self.manifest)
             return -1
         
     def getQoE(self):
@@ -140,6 +146,7 @@ class Client:
         # Distance between client and edge-server. Used for latency calculation.
         clientLocation = self.location % 100, self.location // 100
         edgeServerLocation = self.edgeServer.location % 100, self.edgeServer.location // 100
+
         # Euklidean distance
         distance = math.sqrt((clientLocation[0] - edgeServerLocation[0])**2 + (clientLocation[1] - edgeServerLocation[1])**2)
         distance = round(distance, 2)
