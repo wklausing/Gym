@@ -1,51 +1,50 @@
+'''
+In this environment the CP-Agent has to buy contingent from edge-servers and steer clients to edge-servers. 
+Rewards are defined by QoE metrics from client which are done by Sabre.
+'''
+
 import numpy as np
 
 import gymnasium as gym
 from gymnasium import spaces
 
+import random
+import math
+
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    # Env variables
-    grid_size = 100 * 100
-    time = np.array(0, dtype='int')
+    def __init__(self, render_mode=None, gridSize = 100*100, edgeServers = 4, clients = 10):
 
-    # CP-Agent variables
-    money = np.array(100, dtype='int')
+        # Env variables
+        self.time = np.array(0, dtype='int')
+        self.gridSize = gridSize
 
-    # Client variables
-    clientCount = 10
-    clientsLocations = np.ones(clientCount, dtype=int)
-    clients = []
+        # CP-Agent variables
+        self.money = np.array(100, dtype='int')
 
-    # CDN variables
-    edgeServerCount = 4
-    edgeServerLocations = np.ones(edgeServerCount, dtype=int)
-    edgeServerPrices = np.ones(edgeServerCount, dtype=int)
-    edgeServers = []
+        # CDN variables
+        self.edgeServerCount = edgeServers
+        self.edgeServerLocations = np.ones(edgeServers, dtype=int)
+        self.edgeServerPrices = np.ones(edgeServers, dtype=int)
 
-    def __init__(self, render_mode=None):
+        # Client variables
+        self.clientCount = clients
+        self.clientsLocations = np.ones(clients, dtype=int)
+
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
             {
-                'clientsLocations': gym.spaces.MultiDiscrete([self.grid_size] * self.clientCount),
-                'edgeServerLocations': gym.spaces.MultiDiscrete([self.grid_size ] * self.edgeServerCount),
-                'edgeServerPrices': spaces.Box(0, 10, shape=(self.edgeServerCount,), dtype=float),
+                'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * clients),
+                'edgeServerLocations': gym.spaces.MultiDiscrete([gridSize] * edgeServers),
+                'edgeServerPrices': spaces.Box(0, 10, shape=(edgeServers,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
                 'money': spaces.Box(0, 100_000, shape=(1,), dtype=int),
             }
         )
 
-        # Action space contains ability to buy contigent from edge-server and to steer client to another edge-server.
-        # self.action_space = spaces.Dict(
-        #     {
-        #         'buyContigent': gym.spaces.MultiDiscrete([self.grid_size] * self.edgeServerCount),
-        #         'steerClient': gym.spaces.MultiDiscrete([self.edgeServerCount] * self.clientCount),
-        #     }
-        # )
-
-        self.buyContingent = [100] * self.edgeServerCount
-        self.steerClient = [self.edgeServerCount] * self.clientCount
+        self.buyContingent = [100] * edgeServers
+        self.steerClient = [edgeServers] * clients
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.steerClient)
 
     def _get_obs(self):
@@ -60,48 +59,48 @@ class GymSabreEnv(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
         
-        # Reset variables
+        # Reset env variables
         self.time = np.array([0], dtype='int')
+
+        # Reset CP-Agent
         self.money = np.array([100_000], dtype='int')
 
-        # Reset clients
-        self.clientsLocations = self.np_random.integers(0, self.grid_size, size=self.clientCount, dtype=int)
-        self.clients = []
-        for c in range(self.clientCount):
-            self.clients.append(Client(self.clientsLocations[c]))
-
         # Reset edge servers
-        self.edgeServerLocations = self.np_random.integers(0, self.grid_size, size=self.edgeServerCount, dtype=int)
+        self.edgeServerLocations = self.np_random.integers(0, self.gridSize, size=self.edgeServerCount, dtype=int)
         self.edgeServerPrices = np.round(np.random.uniform(0, 10, size=self.edgeServerCount), 2)
         self.edgeServers = []
         for e in range(self.edgeServerCount):
             self.edgeServers.append(EdgeServer(self.edgeServerLocations[e], self.edgeServerPrices[e]))
 
+        # Reset clients
+        self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
+        self.clients = []
+        for c in range(self.clientCount):
+            self.clients.append(Client(self.clientsLocations[c], random.choice(self.edgeServers)))
+
         observation = self._get_obs()
         info = self._get_info()
+
+        self.clients[0].getQoE()
         
         return observation, info
-        #return self.state, reward, terminated, truncated, {}
 
     def step(self, action):
         time = self.time.item()
         money = self.money.item()
-        
         reward = 0
 
         # An episode is done when the CP is out of money or time is over
-        terminated = money <= 0 or time >= 100_000
+        terminated = money <= 0 or time >= 7_200
 
         if not terminated:
             # Buy contigent
-            #buyContigent = action['buyContigent']
             buyContigent = action[:len(self.buyContingent)] 
 
             for index, edgeServer in enumerate(self.edgeServers):
                 money = edgeServer.sellContigent(money, buyContigent[index])
             
             # Steer clients
-            #steerClient = action['steerClient']
             steerClient = action[len(self.buyContingent):] 
             for index, client in enumerate(self.clients):
                 client.edgeServer = self.edgeServers[steerClient[index]]
@@ -121,31 +120,47 @@ class GymSabreEnv(gym.Env):
 
 class Client:
 
-    def __init__(self, location):
+    def __init__(self, location, edgeServer=None):
         self.location = location
+        self.edgeServer = edgeServer
+        edgeServer.addClient(self)
+        self.stillStreaming = True
 
     def fetchContent(self):
-        if self._edgeServer.soldContigent > 0:
-            self._edgeServer.soldContigent -= 1
+        if self.edgeServer.soldContigent > 0:
+            self.edgeServer.soldContigent -= 1
             return 1
         else: 
             return -1
+        
+    def getQoE(self):
+        '''
+        Here QoE will be computed with Sabre.
+        '''
+        # Distance between client and edge-server. Used for latency calculation.
+        clientLocation = self.location % 100, self.location // 100
+        edgeServerLocation = self.edgeServer.location % 100, self.edgeServer.location // 100
+        # Euklidean distance
+        distance = math.sqrt((clientLocation[0] - edgeServerLocation[0])**2 + (clientLocation[1] - edgeServerLocation[1])**2)
+        distance = round(distance, 2)
 
-    @property
-    def edgeServer(self):
-        return self._edgeServer
+        # Bandwidth
+        self.bandwidth
+
+        return 1
     
-    @edgeServer.setter
-    def edgeServer(self, edgeServer):
-        self._edgeServer = edgeServer
+    def setBandwidth(self, bandwidth):
+        self.bandwidth = bandwidth
 
 
 class EdgeServer:
 
-    def __init__(self, location, price=1):
+    def __init__(self, location, price=1, bandwidth_kbps=1000):
         self.location = location
         self.price = price
         self.soldContigent = 0
+        self.bandwidth_kbps = bandwidth_kbps
+        self.clients = []
 
     def sellContigent(self, cpMoney, amount):
         leftOverMoney = 0
@@ -156,10 +171,20 @@ class EdgeServer:
         else:
             leftOverMoney = cpMoney
         return round(leftOverMoney, 2)
+    
+    def addClient(self, client):
+        self.clients.append(client)
+        bandwidth = self.bandwidth_kbps / len(self.clients)
+        for c in self.clients:
+            c.setBandwidth(bandwidth)
+    
+    @property
+    def bandwidth(self):
+        return self.bandwidth_kbps
 
 
 if __name__ == "__main__":
-    print('Start!')
+    print('### Start ###')
     env = GymSabreEnv(render_mode="human")
     observation, info = env.reset()
 
@@ -171,4 +196,4 @@ if __name__ == "__main__":
             observation, info = env.reset()
 
     env.close()
-    print('Done!')
+    print('### Done ###')
