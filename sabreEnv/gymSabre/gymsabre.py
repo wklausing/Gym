@@ -17,16 +17,16 @@ class GymSabreEnv(gym.Env):
     def __init__(self, render_mode=None, gridSize = 100*100, edgeServers = 4, clients = 10):
 
         # Env variables
-        self.time = np.array(0, dtype='int')
         self.gridSize = gridSize
 
         # CP-Agent variables
-        self.money = np.array(100, dtype='int')
+        
 
         # CDN variables
         self.edgeServerCount = edgeServers
         self.edgeServerLocations = np.ones(edgeServers, dtype=int)
         self.edgeServerPrices = np.ones(edgeServers, dtype=int)
+        #self.allManifests = self.generateAllPossibleManifests()
 
         # Client variables
         self.clientCount = clients
@@ -44,8 +44,9 @@ class GymSabreEnv(gym.Env):
         )
 
         self.buyContingent = [100] * edgeServers
-        self.steerClient = [edgeServers] * clients
-        self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.steerClient)
+        self.manifest = clients * edgeServers * [edgeServers]
+        self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
+        print(self.action_space.sample())
 
     def _get_obs(self):
         return {"clientsLocations": self.clientsLocations, "edgeServerLocations": self.edgeServerLocations
@@ -96,14 +97,14 @@ class GymSabreEnv(gym.Env):
         if not terminated:
             # Buy contigent
             buyContigent = action[:len(self.buyContingent)] 
-
             for index, edgeServer in enumerate(self.edgeServers):
                 money = edgeServer.sellContigent(money, buyContigent[index])
             
-            # Steer clients
-            steerClient = action[len(self.buyContingent):] 
+            # Create manifest
+            manifest = action[len(self.buyContingent):] 
             for index, client in enumerate(self.clients):
-                client.edgeServer = self.edgeServers[steerClient[index]]
+                client.manifest = manifest[:4]
+                manifest = manifest[4:]
                 money += client.fetchContent()
                 reward += client.fetchContent()
 
