@@ -1,8 +1,9 @@
 
 from sabreEnv.gymSabre.gymsabre import GymSabreEnv
-from sabreEnv.sabre.fooBarSabre import FooSabre
+from sabreEnv.sabre.sabre import Sabre
 from sabreEnv.utils.fooBarUtils import FooUtils
 from sabreEnv.wrappers.fooWrapper import SabreActionWrapper
+
 
 
 from gymnasium.envs.registration import (
@@ -10,7 +11,6 @@ from gymnasium.envs.registration import (
     make,
     pprint_registry,
     register,
-    registry,
     spec,
 )
 

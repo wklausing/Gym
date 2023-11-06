@@ -11,6 +11,9 @@ from gymnasium import spaces
 import random
 import math
 
+#from sabreEnv import Sabre
+from collections import namedtuple
+
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
@@ -130,8 +133,17 @@ class Client:
         self.edgeServer = manifest[self.idxCDN]
         self.edgeServer.addClient(self)
         self.stillStreaming = True
+        self.latency = 100
+
+        # Sabre implementation
+        #self.sabre = Sabre()
+        self.NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency permanent')
+        self.network_multiplier = 1
 
     def fetchContent(self):
+        '''
+        If fetch origin can delivier than return 1. If not than increase idxCDN to select next server and return -1.
+        '''
         if self.edgeServer.soldContigent > 0:
             self.edgeServer.soldContigent -= 1
             return 1
@@ -154,11 +166,21 @@ class Client:
 
         # Bandwidth
         self.bandwidth
-
         return 1
     
     def setBandwidth(self, bandwidth):
         self.bandwidth = bandwidth
+
+    def getNextNetworkCondition(self):
+        '''
+        Used be Sabre to get the network condition.
+        '''
+        trace = self.NetworkPeriod(time=1000,
+                            bandwidth=self.bandwidth *
+                            self.network_multiplier,
+                            latency=self.latency,
+                            permanent=True)
+        return trace
 
 
 class EdgeServer:

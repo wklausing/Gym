@@ -1,2 +1,2 @@
 
-from sabreEnv.sabre.fooBarSabre import FooSabre
+from sabreEnv.sabre.sabre import Sabre
