@@ -1,7 +1,7 @@
 import unittest
 import sys
 
-from sabreEnv import GymSabreEnv, SabreActionWrapper
+from sabreEnv import GymSabreEnv
 
 class TestMainFunction(unittest.TestCase):
 
