@@ -11,7 +11,7 @@ from gymnasium import spaces
 import random
 import math
 
-#from sabreEnv import Sabre
+from sabreEnv.sabre.sabre import Sabre
 from collections import namedtuple
 
 class GymSabreEnv(gym.Env):
@@ -49,7 +49,6 @@ class GymSabreEnv(gym.Env):
         self.buyContingent = [100] * edgeServers
         self.manifest = clients * edgeServers * [edgeServers]
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
-        print(self.action_space.sample())
 
     def _get_obs(self):
         return {"clientsLocations": self.clientsLocations, "edgeServerLocations": self.edgeServerLocations
@@ -84,8 +83,6 @@ class GymSabreEnv(gym.Env):
 
         observation = self._get_obs()
         info = self._get_info()
-
-        self.clients[0].getQoE()
         
         return observation, info
 
@@ -122,7 +119,7 @@ class GymSabreEnv(gym.Env):
         return observation, reward, terminated, False, info
 
 
-class Client:
+class Client(Sabre):
 
     manifest = []
 
@@ -136,13 +133,15 @@ class Client:
         self.latency = 100
 
         # Sabre implementation
-        #self.sabre = Sabre()
+        super().__init__()
         self.NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency permanent')
         self.network_multiplier = 1
+
 
     def fetchContent(self):
         '''
         If fetch origin can delivier than return 1. If not than increase idxCDN to select next server and return -1.
+        Here Sabre should be used to get a real reward based on QoE. 
         '''
         if self.edgeServer.soldContigent > 0:
             self.edgeServer.soldContigent -= 1

@@ -232,6 +232,7 @@ class NetworkModel:
         '''
         Changes network conditions, according to self.trace
         '''
+        # TODO Hier Schnittstell für Gym einbauen
         self.trace = self.gym.getNextNetworkCondition()
 
         self.time_to_next = self.trace.time
@@ -1661,6 +1662,7 @@ class Sabre():
     def testing(self):
         '''
         For test cases.
+        Here I could create an example of changing network conditions.
         '''
         result = {}
 
