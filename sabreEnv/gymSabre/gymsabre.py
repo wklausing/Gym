@@ -4,13 +4,10 @@ Rewards are defined by QoE metrics from client which are done by Sabre.
 '''
 
 import numpy as np
-
 import gymnasium as gym
 from gymnasium import spaces
-
 import random
 import math
-
 from sabreEnv.sabre.sabre import Sabre
 from collections import namedtuple
 
@@ -100,11 +97,17 @@ class GymSabreEnv(gym.Env):
             
             # Create manifest
             manifest = action[len(self.buyContingent):] 
-            for index, client in enumerate(self.clients):
-                client.manifest = manifest[:4]
-                manifest = manifest[4:]
-                money += client.fetchContent(time)
-                reward += client.getQoE()
+            for _, client in enumerate(self.clients):
+                if client.alive:
+                    client.manifest = manifest[:4]
+                    manifest = manifest[4:]
+                    money += client.fetchContent(time)
+                    reward += client.getQoE()
+
+            # Remove dead clients
+            for i, client in enumerate(self.clients):
+                if client.alive == False:
+                    del self.clients[i]
 
         observation = self._get_obs()
         info = self._get_info()
@@ -115,6 +118,16 @@ class GymSabreEnv(gym.Env):
         self.money = np.array([money], dtype='int')
 
         return observation, reward, terminated, False, info
+    
+    ### UTILS ###
+    def distance(self, position1, position2):
+        '''
+        Calculates distance between two points. Used for latency calculation.
+        '''
+        position1 = position1 % 100, position1 // 100
+        position2 = position2 % 100, position2 // 100
+        distance = math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2) # Euklidean distance
+        return round(distance, 2)
 
 
 class Client():
@@ -122,6 +135,7 @@ class Client():
     manifest = []
 
     def __init__(self, location, manifest=[]):
+        self.alive = True
         self.location = location
         self.manifest = manifest
         self.idxCDN = 0
@@ -129,10 +143,10 @@ class Client():
         self.edgeServer.addClient(self)
         self.stillStreaming = True
         self.latency = 100
+        self.time = 0
 
         # Sabre implementation
-        self.sabre = Sabre(verbose=False)
-        
+        self.sabre = Sabre(verbose=False)        
 
     def fetchContent(self, time):
         '''
@@ -140,19 +154,14 @@ class Client():
         Here Sabre should be used to get a real reward based on QoE. 
         '''
         # Distance between client and edge-server. Used for latency calculation. TODO let distance determine latency
-        clientLocation = self.location % 100, self.location // 100
-        edgeServerLocation = self.edgeServer.location % 100, self.edgeServer.location // 100
-        distance = math.sqrt((clientLocation[0] - edgeServerLocation[0])**2 + (clientLocation[1] - edgeServerLocation[1])**2) # Euklidean distance
-        distance = round(distance, 2)
         latency = self.latency
 
         # Bandwidth
         bandwidth = self.bandwidth
 
         # Add network trace to client
-        self.time = time
+        self.time = self.time - time
         self.sabre.network._add_network_condition(duration_ms=time, bandwidth_kbps=bandwidth, latency_ms=latency)
-
 
         # For finance stuff of CDNs
         if self.edgeServer.soldContigent > 0:
@@ -172,6 +181,9 @@ class Client():
             result = sabreResult
             qoe = result['time_average_played_bitrate'] - result['time_average_bitrate_change'] - result['time_average_rebuffer_events']
             return qoe
+        elif sabreResult['done']:
+            self.alive = False
+            return 0
         else:
             return 0
     
@@ -203,6 +215,12 @@ class EdgeServer:
         bandwidth = self.bandwidth_kbps / len(self.clients)
         for c in self.clients:
             c.setBandwidth(bandwidth)
+
+    def removeClient(self, client):
+        self.clients.remove(client)
+        bandwidth = self.bandwidth_kbps / len(self.clients)
+        for c in self.clients:
+            c.setBandwidth(bandwidth)
     
     @property
     def bandwidth(self):
@@ -214,7 +232,7 @@ if __name__ == "__main__":
     env = GymSabreEnv(render_mode="human")
     observation, info = env.reset()
 
-    for i in range(10_000):
+    for i in range(2_000):
         print(i)
         action = env.action_space.sample()  # agent policy that uses the observation and info
         observation, reward, terminated, truncated, info = env.step(action)

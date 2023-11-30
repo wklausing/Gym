@@ -351,7 +351,7 @@ class Sabre():
         rampup_threshold=None,
         replace='none',
         seek=None,
-        verbose=True,
+        verbose=False,
         window_size=[3]
     ):  
         self.no_abandon = no_abandon
@@ -619,6 +619,9 @@ class Sabre():
         return results_dict
     
     def testing(self, network='sabreEnv/sabre/data/network.json'):
+        '''
+        Runs till everything from manifest is downloaded.
+        '''
         network_trace = self.util.load_json(network)
         networkLen = len(network_trace)
         i = 0
@@ -630,7 +633,7 @@ class Sabre():
                 trace = network_trace[i]
                 self.network._add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
                 i += 1
-                if i >= networkLen: i = 0
+                if i == networkLen: i = 0
             
 
 if __name__ == '__main__':
