@@ -1,8 +1,16 @@
 import unittest
 
 from sabreEnv import GymSabreEnv
+from gymnasium.utils.env_checker import check_env
 
 class TestMainFunction(unittest.TestCase):
+
+
+    def testCheck_env(self):
+        try:
+            check_env(env=GymSabreEnv(render_mode="human", clients=2), warn=True, skip_render_check=True)
+        except:
+            self.fail("check_env() raised Exception unexpectedly!")
 
     def testBandwidth(self):
         '''
