@@ -6,10 +6,11 @@ Rewards are defined by QoE metrics from client which are done by Sabre.
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-import random
 import math
 from sabreEnv.sabre.sabre import Sabre
-from collections import namedtuple
+
+from gymnasium.wrappers import RecordEpisodeStatistics
+
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -40,7 +41,8 @@ class GymSabreEnv(gym.Env):
                 'money': spaces.Box(0, 100_000, shape=(1,), dtype=int),
             }
         )
-
+ 
+        # Action space for CP agent. Contains buy contigent and manifest for clients.
         self.buyContingent = [100] * edgeServers
         self.manifest = clients * edgeServers * [edgeServers]
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
@@ -74,7 +76,7 @@ class GymSabreEnv(gym.Env):
         self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(self.clientsLocations[c], self.edgeServers))
+            self.clients.append(Client(c ,self.clientsLocations[c], self.edgeServers))
 
         observation = self._get_obs()
         info = self._get_info()
@@ -97,20 +99,16 @@ class GymSabreEnv(gym.Env):
             
             # Create manifest
             manifest = action[len(self.buyContingent):] 
-            for _, client in enumerate(self.clients):
+            for i, client in enumerate(self.clients):
                 if client.alive:
                     client.manifest = manifest[:4]
-                    manifest = manifest[4:]
                     money += client.fetchContent(time)
                     reward += client.getQoE()
-
-            # Remove dead clients
-            for i, client in enumerate(self.clients):
-                if client.alive == False:
-                    del self.clients[i]
+                else:
+                    del self.clients[i]                    
 
         observation = self._get_obs()
-        info = self._get_info()
+        #info = self._get_info()
 
         time += 1
 
@@ -118,23 +116,14 @@ class GymSabreEnv(gym.Env):
         self.money = np.array([money], dtype='int')
 
         return observation, reward, terminated, False, info
-    
-    ### UTILS ###
-    def distance(self, position1, position2):
-        '''
-        Calculates distance between two points. Used for latency calculation.
-        '''
-        position1 = position1 % 100, position1 // 100
-        position2 = position2 % 100, position2 // 100
-        distance = math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2) # Euklidean distance
-        return round(distance, 2)
 
 
 class Client():
 
     manifest = []
 
-    def __init__(self, location, manifest=[]):
+    def __init__(self, id, location, manifest=[]):
+        self.id = id
         self.alive = True
         self.location = location
         self.manifest = manifest
@@ -154,7 +143,7 @@ class Client():
         Here Sabre should be used to get a real reward based on QoE. 
         '''
         # Distance between client and edge-server. Used for latency calculation. TODO let distance determine latency
-        latency = self.latency
+        latency = self.determineLatency(self.location, self.edgeServer.location)
 
         # Bandwidth
         bandwidth = self.bandwidth
@@ -168,6 +157,7 @@ class Client():
             self.edgeServer.soldContigent -= 1
             return 1
         else:
+            print('Static steering client %s from CDN %s to %s' % (self.id, self.idxCDN, self.idxCDN+1))
             self.idxCDN += 1 
             self.idxCDN = self.idxCDN % len(self.manifest)
             return -1
@@ -182,13 +172,27 @@ class Client():
             qoe = result['time_average_played_bitrate'] - result['time_average_bitrate_change'] - result['time_average_rebuffer_events']
             return qoe
         elif sabreResult['done']:
-            self.alive = False
+            self.setDead()
             return 0
         else:
             return 0
     
     def setBandwidth(self, bandwidth):
         self.bandwidth = bandwidth
+
+    def setDead(self):
+        self.alive = False
+        self.edgeServer.removeClient(self)
+
+    def determineLatency(self, position1, position2):
+        '''
+        Calculates distance between two points. Used to calcualte latency.
+        '''
+        position1 = position1 % 100, position1 // 100
+        position2 = position2 % 100, position2 // 100
+        distance = round(math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2), 2) # Euklidean distance
+        distance = round(distance * 5, 2)
+        return distance
 
 
 class EdgeServer:
@@ -218,6 +222,7 @@ class EdgeServer:
 
     def removeClient(self, client):
         self.clients.remove(client)
+        if len(self.clients) == 0: return
         bandwidth = self.bandwidth_kbps / len(self.clients)
         for c in self.clients:
             c.setBandwidth(bandwidth)
@@ -229,16 +234,20 @@ class EdgeServer:
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human")
+    env = GymSabreEnv(render_mode="human", clients=2)
+    env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
     for i in range(2_000):
-        print(i)
-        action = env.action_space.sample()  # agent policy that uses the observation and info
+        #print(i)
+        action = env.action_space.sample() # agent policy that uses the observation and info
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
             observation, info = env.reset()
+
+        if i > 1998:
+           print(info) 
 
     env.close()
     print('### Done ###')
