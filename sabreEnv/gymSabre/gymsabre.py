@@ -11,6 +11,7 @@ from sabreEnv.sabre.sabre import Sabre
 
 from gymnasium.wrappers import RecordEpisodeStatistics
 
+gym.logger.set_level(20) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -48,18 +49,20 @@ class GymSabreEnv(gym.Env):
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
 
     def _get_obs(self):
-        return {"clientsLocations": self.clientsLocations, "edgeServerLocations": self.edgeServerLocations
-                , "edgeServerPrices": self.edgeServerPrices, "time": self.time
-                , "money": self.money}
+        return {'clientsLocations': self.clientsLocations, 'edgeServerLocations': self.edgeServerLocations
+                , 'edgeServerPrices': self.edgeServerPrices, 'time': self.time
+                , 'money': self.money}
 
-    def _get_info(self):
-        return {}
+    def _get_info(self, reward):
+        self.sumReward += reward
+        return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
         
         # Reset env variables
+        self.sumReward = 0
         self.time = np.array([0], dtype='int')
 
         # Reset CP-Agent
@@ -79,7 +82,7 @@ class GymSabreEnv(gym.Env):
             self.clients.append(Client(c ,self.clientsLocations[c], self.edgeServers))
 
         observation = self._get_obs()
-        info = self._get_info()
+        info = {}
         
         return observation, info
 
@@ -89,61 +92,67 @@ class GymSabreEnv(gym.Env):
         reward = 0
 
         # An episode is done when the CP is out of money or time is over
-        terminated = money <= 0 or time >= 7_200
+        terminated = money <= 0 or time >= 7_200 or len(self.clients) == 0
 
         if not terminated:
             # Buy contigent
             buyContigent = action[:len(self.buyContingent)] 
-            for index, edgeServer in enumerate(self.edgeServers):
-                money = edgeServer.sellContigent(money, buyContigent[index])
+            for i, edgeServer in enumerate(self.edgeServers):
+                money = edgeServer.sellContigent(money, buyContigent[i])
             
             # Create manifest
             manifest = action[len(self.buyContingent):] 
             for i, client in enumerate(self.clients):
                 if client.alive:
-                    client.manifest = manifest[:4]
+                    if not hasattr(client, 'manifest'): client.setManifest(manifest[:4])
                     money += client.fetchContent(time)
                     reward += client.getQoE()
                 else:
                     del self.clients[i]                    
 
         observation = self._get_obs()
-        #info = self._get_info()
 
         time += 1
 
         self.time = np.array([time], dtype='int')
         self.money = np.array([money], dtype='int')
 
+        info = self._get_info(reward)
         return observation, reward, terminated, False, info
 
 
 class Client():
+    '''
+    Manifest is list with the ids of edge-server.
+    cdns is list of edge-servers.
+    '''
 
-    manifest = []
-
-    def __init__(self, id, location, manifest=[]):
+    def __init__(self, id, location, cdns):
         self.id = id
         self.alive = True
         self.location = location
-        self.manifest = manifest
-        self.idxCDN = 0
-        self.edgeServer = manifest[self.idxCDN]
-        self.edgeServer.addClient(self)
-        self.stillStreaming = True
-        self.latency = 100
         self.time = 0
+        self.cdns = cdns
+        self.bandwidth = 0
 
         # Sabre implementation
-        self.sabre = Sabre(verbose=False)        
+        self.sabre = Sabre(verbose=False)   
+
+    def setManifest(self, manifest):
+        self.manifest = manifest
+        self.idxCDN = 0
+        self.edgeServer = self.cdns[self.idxCDN]
+        self.edgeServer.addClient(self)
 
     def fetchContent(self, time):
         '''
         If fetch origin can delivier than return 1. If not than increase idxCDN to select next server and return -1.
         Here Sabre should be used to get a real reward based on QoE. 
+
+        The CP gets money from clients whenever they fetch content.
         '''
-        # Distance between client and edge-server. Used for latency calculation. TODO let distance determine latency
-        latency = self.determineLatency(self.location, self.edgeServer.location)
+        # Distance between client and edge-server. Used for latency calculation.
+        latency = self.determineLatency(self.location, self.cdns[self.idxCDN].location)
 
         # Bandwidth
         bandwidth = self.bandwidth
@@ -152,14 +161,13 @@ class Client():
         self.time = self.time - time
         self.sabre.network._add_network_condition(duration_ms=time, bandwidth_kbps=bandwidth, latency_ms=latency)
 
-        # For finance stuff of CDNs
+        # Each time a client fetches content it pays the edge-server.
         if self.edgeServer.soldContigent > 0:
             self.edgeServer.soldContigent -= 1
             return 1
         else:
-            print('Static steering client %s from CDN %s to %s' % (self.id, self.idxCDN, self.idxCDN+1))
-            self.idxCDN += 1 
-            self.idxCDN = self.idxCDN % len(self.manifest)
+            gym.logger.info('Not enough contingent for client %s from CDN at location %s' % (self.id, self.edgeServer.location))
+            self._changeCDN()
             return -1
         
     def getQoE(self):
@@ -167,7 +175,7 @@ class Client():
         Here QoE will be computed with Sabre.
         '''
         sabreResult = self.sabre.downloadSegment()
-        if sabreResult['done'] == False and len(sabreResult) == 5:
+        if sabreResult['done'] == False and len(sabreResult) == 6:
             result = sabreResult
             qoe = result['time_average_played_bitrate'] - result['time_average_bitrate_change'] - result['time_average_rebuffer_events']
             return qoe
@@ -176,6 +184,20 @@ class Client():
             return 0
         else:
             return 0
+        
+    def _changeCDN(self):
+        '''
+        Change CDN if i.e. QoE is bad.
+        Currently it start from the beginning of the manifest when it reached the end.
+        '''
+        self.idxCDN += 1
+        if self.idxCDN == len(self.manifest):
+            self.idxCDN -= 1
+        else:
+            self.edgeServer.removeClient(self)
+            self.edgeServer = self.cdns[self.manifest[self.idxCDN]]
+            self.edgeServer.addClient(self)
+            gym.logger.info('Client %s changed to CDN %s' % (self.id, self.idxCDN))
     
     def setBandwidth(self, bandwidth):
         self.bandwidth = bandwidth
@@ -238,16 +260,14 @@ if __name__ == "__main__":
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
-    for i in range(2_000):
-        #print(i)
+    for i in range(7_200):
         action = env.action_space.sample() # agent policy that uses the observation and info
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
             observation, info = env.reset()
 
-        if i > 1998:
-           print(info) 
+        if reward != 0: print(reward)
 
     env.close()
     print('### Done ###')

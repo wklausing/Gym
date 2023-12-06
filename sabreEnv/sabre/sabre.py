@@ -534,6 +534,7 @@ class Sabre():
 
         result = {}
         result['done'] = False
+        result['site'] = size
         result['buffer_size'] = self.buffer_size
         result['time_average_played_bitrate'] = 1 / (self.util.total_play_time / self.util.manifest.segment_time)#10963.599999999999 / 3000
         result['time_average_bitrate_change'] = self.util.total_bitrate_change * to_time_average
