@@ -73,7 +73,7 @@ class GymSabreEnv(gym.Env):
         self.edgeServerPrices = np.round(np.random.uniform(0, 10, size=self.edgeServerCount), 2)
         self.edgeServers = []
         for e in range(self.edgeServerCount):
-            self.edgeServers.append(EdgeServer(self.edgeServerLocations[e], self.edgeServerPrices[e]))
+            self.edgeServers.append(EdgeServer(e, self.edgeServerLocations[e], self.edgeServerPrices[e]))
 
         # Reset clients
         self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
@@ -105,8 +105,13 @@ class GymSabreEnv(gym.Env):
             for i, client in enumerate(self.clients):
                 if client.alive:
                     if not hasattr(client, 'manifest'): client.setManifest(manifest[:4])
-                    money += client.fetchContent(time)
-                    reward += client.getQoE()
+                    result = client.fetchContent(time)
+                    if result != {}:
+                        reward += result['qoe']
+                        if not client.alive:
+                            gym.logger.info('Client %s died' % client.id)
+                    else:
+                        gym.logger.info('Client %s could not fetch content' % client.id)
                 else:
                     del self.clients[i]                    
 
@@ -155,35 +160,38 @@ class Client():
         latency = self.determineLatency(self.location, self.cdns[self.idxCDN].location)
 
         # Bandwidth
-        bandwidth = self.bandwidth
-
-        # Add network trace to client
-        self.time = self.time - time
-        self.sabre.network._add_network_condition(duration_ms=time, bandwidth_kbps=bandwidth, latency_ms=latency)
+        bandwidth = self.edgeServer.currentBandwidth
 
         # Each time a client fetches content it pays the edge-server.
-        if self.edgeServer.soldContigent > 0:
-            self.edgeServer.soldContigent -= 1
-            return 1
+        if self.edgeServer.contigent > 0:
+            # Add network trace to client
+            self.time = self.time - time
+            self.sabre.network._add_network_condition(duration_ms=time, bandwidth_kbps=bandwidth, latency_ms=latency)
         else:
             gym.logger.info('Not enough contingent for client %s from CDN at location %s' % (self.id, self.edgeServer.location))
             self._changeCDN()
-            return -1
+            self.sabre.network._remove_network_condition()
+
+        qoe = self.getQoE()
+        if qoe != {}:
+            size = qoe['size']
+            self.edgeServer.contigent -= size / 1000
+
+        return self.getQoE()
         
     def getQoE(self):
         '''
         Here QoE will be computed with Sabre.
         '''
-        sabreResult = self.sabre.downloadSegment()
-        if sabreResult['done'] == False and len(sabreResult) == 6:
-            result = sabreResult
+        result = self.sabre.downloadSegment()
+        if result['done'] == False and len(result) == 6:
             qoe = result['time_average_played_bitrate'] - result['time_average_bitrate_change'] - result['time_average_rebuffer_events']
-            return qoe
-        elif sabreResult['done']:
-            self.setDead()
-            return 0
+            return {'qoe': qoe, 'size': result['size']}
+        elif result['done']:
+            self.setDone()
+            return {}
         else:
-            return 0
+            return {}
         
     def _changeCDN(self):
         '''
@@ -198,11 +206,8 @@ class Client():
             self.edgeServer = self.cdns[self.manifest[self.idxCDN]]
             self.edgeServer.addClient(self)
             gym.logger.info('Client %s changed to CDN %s' % (self.id, self.idxCDN))
-    
-    def setBandwidth(self, bandwidth):
-        self.bandwidth = bandwidth
 
-    def setDead(self):
+    def setDone(self):
         self.alive = False
         self.edgeServer.removeClient(self)
 
@@ -219,10 +224,11 @@ class Client():
 
 class EdgeServer:
 
-    def __init__(self, location, price=1, bandwidth_kbps=1000):
+    def __init__(self, id, location, price=1, bandwidth_kbps=1000):
+        self.id = id
         self.location = location
         self.price = price
-        self.soldContigent = 0
+        self.contigent = 0
         self.bandwidth_kbps = bandwidth_kbps
         self.clients = []
 
@@ -230,7 +236,7 @@ class EdgeServer:
         leftOverMoney = 0
         if cpMoney >= amount * self.price:
             cpMoney -= amount * self.price
-            self.soldContigent += amount
+            self.contigent += amount
             leftOverMoney = amount * self.price
         else:
             leftOverMoney = cpMoney
@@ -238,16 +244,12 @@ class EdgeServer:
     
     def addClient(self, client):
         self.clients.append(client)
-        bandwidth = self.bandwidth_kbps / len(self.clients)
-        for c in self.clients:
-            c.setBandwidth(bandwidth)
+        self.currentBandwidth = self.bandwidth_kbps / len(self.clients)
 
     def removeClient(self, client):
         self.clients.remove(client)
         if len(self.clients) == 0: return
-        bandwidth = self.bandwidth_kbps / len(self.clients)
-        for c in self.clients:
-            c.setBandwidth(bandwidth)
+        self.currentBandwidth = self.bandwidth_kbps / len(self.clients)
     
     @property
     def bandwidth(self):

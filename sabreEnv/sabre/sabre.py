@@ -44,6 +44,14 @@ class NetworkModel:
         self.traces.append(network_trace)
         self.permanent = True
 
+    def _remove_network_condition(self):
+        '''
+        Adds a new network condition to self.trace. Will be removed after one use.
+        '''
+        self.traces = []
+        self.index = 0
+        self.permanent = False
+
     def _next_network_period(self):
         '''
         Changes network conditions, according to self.trace
@@ -248,9 +256,9 @@ class NetworkModel:
             min_size_to_progress = NetworkModel.min_progress_size
 
             if NetworkModel.min_progress_size > 0:
-                latency = self._do_latency_delay(1) # Sollte 200 sein, ist aber 100
-                total_download_time += latency # 200
-                min_time_to_progress -= total_download_time # -150
+                latency = self._do_latency_delay(1)
+                total_download_time += latency
+                min_time_to_progress -= total_download_time
                 delay_units = 0
             else:
                 latency = None
@@ -534,7 +542,7 @@ class Sabre():
 
         result = {}
         result['done'] = False
-        result['site'] = size
+        result['size'] = size
         result['buffer_size'] = self.buffer_size
         result['time_average_played_bitrate'] = 1 / (self.util.total_play_time / self.util.manifest.segment_time)#10963.599999999999 / 3000
         result['time_average_bitrate_change'] = self.util.total_bitrate_change * to_time_average
