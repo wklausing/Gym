@@ -33,7 +33,7 @@ class NetworkModel:
         #     print('Missing initial network condition')
         #     return False
 
-    def _add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
+    def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
         '''
@@ -44,7 +44,7 @@ class NetworkModel:
         self.traces.append(network_trace)
         self.permanent = True
 
-    def _remove_network_condition(self):
+    def remove_network_condition(self):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
         '''
@@ -423,12 +423,12 @@ class Sabre():
 
     def downloadSegment(self):
 
+
         # Final playout of buffer at the end.
         if self.next_segment == len(self.util.manifest.segments):
             self.util.playout_buffer()
             return self.printResults()
              
-
         # Download first segment
         if self.firstSegment:
             quality = self.abr.get_first_quality()
@@ -640,7 +640,7 @@ class Sabre():
                 return result
             else:
                 trace = network_trace[i]
-                self.network._add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
+                self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
                 i += 1
                 if i == networkLen: i = 0
             
