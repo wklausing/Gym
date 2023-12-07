@@ -36,6 +36,7 @@ class GymSabreEnv(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * clients),
+                #'clientsManifests': gym.spaces.MultiDiscrete(clients * edgeServers * [edgeServers]),
                 'edgeServerLocations': gym.spaces.MultiDiscrete([gridSize] * edgeServers),
                 'edgeServerPrices': spaces.Box(0, 10, shape=(edgeServers,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
@@ -49,6 +50,11 @@ class GymSabreEnv(gym.Env):
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
 
     def _get_obs(self):
+        #clientsLocations
+        for client in self.clients:
+            id = client.id
+            self.clientsLocations[id] = self.clients[id].location
+
         return {'clientsLocations': self.clientsLocations, 'edgeServerLocations': self.edgeServerLocations
                 , 'edgeServerPrices': self.edgeServerPrices, 'time': self.time
                 , 'money': self.money}
@@ -66,11 +72,11 @@ class GymSabreEnv(gym.Env):
         self.time = np.array([0], dtype='int')
 
         # Reset CP-Agent
-        self.money = np.array([100_000], dtype='int')
+        self.money = np.array([100], dtype='int')
 
         # Reset edge servers
         self.edgeServerLocations = self.np_random.integers(0, self.gridSize, size=self.edgeServerCount, dtype=int)
-        self.edgeServerPrices = np.round(np.random.uniform(0, 10, size=self.edgeServerCount), 2)
+        self.edgeServerPrices = np.round(np.random.uniform(0.5, 2, size=self.edgeServerCount), 2)
         self.edgeServers = []
         for e in range(self.edgeServerCount):
             self.edgeServers.append(EdgeServer(e, self.edgeServerLocations[e], self.edgeServerPrices[e]))
@@ -104,24 +110,22 @@ class GymSabreEnv(gym.Env):
             manifest = action[len(self.buyContingent):] 
             for i, client in enumerate(self.clients):
                 if client.alive:
-                    if not hasattr(client, 'manifest'): client.setManifest(manifest[:4])
+                    if not hasattr(client, 'manifest'):
+                        start = client.id*4
+                        client.setManifest(manifest[start:4+start])
                     result = client.fetchContent(time)
                     if result != {}:
                         reward += result['qoe']
                         if not client.alive:
-                            gym.logger.info('Client %s died' % client.id)
+                            gym.logger.info('Client %s is done' % client.id)
                     else:
-                        gym.logger.info('Client %s could not fetch content' % client.id)
-                else:
-                    del self.clients[i]                    
-
-        observation = self._get_obs()
+                        gym.logger.info('Client %s could not fetch content from CND %s' % (client.id, client.edgeServer.id))                 
 
         time += 1
-
         self.time = np.array([time], dtype='int')
         self.money = np.array([money], dtype='int')
-
+        
+        observation = self._get_obs()
         info = self._get_info(reward)
         return observation, reward, terminated, False, info
 
@@ -138,15 +142,14 @@ class Client():
         self.location = location
         self.time = 0
         self.cdns = cdns
-        self.bandwidth = 0
 
         # Sabre implementation
         self.sabre = Sabre(verbose=False)   
 
     def setManifest(self, manifest):
         self.manifest = manifest
-        self.idxCDN = 0
-        self.edgeServer = self.cdns[self.idxCDN]
+        self.idxManifest = 0
+        self.edgeServer = self.cdns[self.idxManifest]
         self.edgeServer.addClient(self)
 
     def fetchContent(self, time):
@@ -157,7 +160,7 @@ class Client():
         The CP gets money from clients whenever they fetch content.
         '''
         # Distance between client and edge-server. Used for latency calculation.
-        latency = self.determineLatency(self.location, self.cdns[self.idxCDN].location)
+        latency = self._determineLatency(self.location, self.edgeServer.location)
 
         # Bandwidth
         bandwidth = self.edgeServer.currentBandwidth
@@ -166,20 +169,19 @@ class Client():
         if self.edgeServer.contigent > 0:
             # Add network trace to client
             self.time = self.time - time
-            self.sabre.network._add_network_condition(duration_ms=time, bandwidth_kbps=bandwidth, latency_ms=latency)
+            self.sabre.network.add_network_condition(duration_ms=time*1000, bandwidth_kbps=bandwidth, latency_ms=latency)
         else:
-            gym.logger.info('Not enough contingent for client %s from CDN at location %s' % (self.id, self.edgeServer.location))
+            gym.logger.info('Not enough contingent for client %s at CDN %s' % (self.id, self.edgeServer.id))
             self._changeCDN()
-            self.sabre.network._remove_network_condition()
+            self.sabre.network.remove_network_condition()
 
-        qoe = self.getQoE()
+        qoe = self._getQoE()
         if qoe != {}:
-            size = qoe['size']
-            self.edgeServer.contigent -= size / 1000
+            self.edgeServer.deductContigent(qoe['size'])
 
-        return self.getQoE()
+        return qoe
         
-    def getQoE(self):
+    def _getQoE(self):
         '''
         Here QoE will be computed with Sabre.
         '''
@@ -188,30 +190,33 @@ class Client():
             qoe = result['time_average_played_bitrate'] - result['time_average_bitrate_change'] - result['time_average_rebuffer_events']
             return {'qoe': qoe, 'size': result['size']}
         elif result['done']:
-            self.setDone()
+            self._setDone()
             return {}
         else:
+            gym.logger.info('Not enough trace for client %s to fetch from CDN %s' % (self.id, self.edgeServer.id))
             return {}
         
     def _changeCDN(self):
         '''
         Change CDN if i.e. QoE is bad.
-        Currently it start from the beginning of the manifest when it reached the end.
+        Iterates over the manifest to select next CDN. When reaching the end it stops.
         '''
-        self.idxCDN += 1
-        if self.idxCDN == len(self.manifest):
-            self.idxCDN -= 1
+        self.idxManifest += 1
+        if self.idxManifest >= len(self.manifest):
+            self.idxManifest -= 1
+            gym.logger.warn('Client %s is already at last CDN (id=%s) in manifest' % (self.id, self.idxManifest))
         else:
             self.edgeServer.removeClient(self)
-            self.edgeServer = self.cdns[self.manifest[self.idxCDN]]
+            self.edgeServer = self.cdns[self.manifest[self.idxManifest]]
             self.edgeServer.addClient(self)
-            gym.logger.info('Client %s changed to CDN %s' % (self.id, self.idxCDN))
+            gym.logger.info('Client %s changed to CDN %s' % (self.id, self.idxManifest))
 
-    def setDone(self):
+    def _setDone(self):
+        gym.logger.info('Client %s downloaded content successfully' % (self.id))
         self.alive = False
         self.edgeServer.removeClient(self)
 
-    def determineLatency(self, position1, position2):
+    def _determineLatency(self, position1, position2):
         '''
         Calculates distance between two points. Used to calcualte latency.
         '''
@@ -233,14 +238,11 @@ class EdgeServer:
         self.clients = []
 
     def sellContigent(self, cpMoney, amount):
-        leftOverMoney = 0
-        if cpMoney >= amount * self.price:
-            cpMoney -= amount * self.price
-            self.contigent += amount
-            leftOverMoney = amount * self.price
-        else:
-            leftOverMoney = cpMoney
-        return round(leftOverMoney, 2)
+        price = self.price * amount
+        if cpMoney >= price:
+            cpMoney -= price
+            self.contigent += amount * 1000
+        return round(cpMoney, 2)
     
     def addClient(self, client):
         self.clients.append(client)
@@ -250,6 +252,14 @@ class EdgeServer:
         self.clients.remove(client)
         if len(self.clients) == 0: return
         self.currentBandwidth = self.bandwidth_kbps / len(self.clients)
+
+    def deductContigent(self, amount):
+        amountMB = amount / 8_000_000
+        if self.contigent >= amountMB:
+            self.contigent -= amountMB
+        else:
+            gym.logger.warn('Deducting too much contigent from CDN %s.' % self.id)
+            quit()
     
     @property
     def bandwidth(self):
@@ -258,7 +268,7 @@ class EdgeServer:
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=2)
+    env = GymSabreEnv(render_mode="human", clients=10, edgeServers=2)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
