@@ -4,3 +4,4 @@ __pycache__
 gymsabre/sabre.egg-info/
 .vscode/
 solutions/policies/
+data/*json

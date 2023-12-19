@@ -23,7 +23,7 @@ class GymSabreEnv(gym.Env):
 
     def __init__(self, render_mode=None, gridSize = 100*100, edgeServers = 4, clients = 10):
 
-        self.filename = 'render' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
+        self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
 
         # Env variables
         self.gridSize = gridSize
@@ -70,7 +70,6 @@ class GymSabreEnv(gym.Env):
         return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward}
 
     def reset(self, seed=None, options=None):
-
 
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
@@ -155,13 +154,6 @@ class GymSabreEnv(gym.Env):
     data = []
 
     def render(self, mode="human"):
-        # print('#########',self.time.item(),'##########')
-        # print('#########CDNs##########')
-        # for edgeServer in self.edgeServers:
-        #     print('id: %s, location: %s, price: %s, contigent: %s' % (edgeServer.id, edgeServer.location, edgeServer.price, edgeServer.contigent))
-        # print('#########Clients##########')
-        # for client in self.clients:
-        #     print('id: %s, location: %s, alive: %s, edgeServer: %s' % (client.id, client.location, client.alive, client.edgeServer.id))
 
         info_dict = {
             'time': self.time.item(),
@@ -175,7 +167,9 @@ class GymSabreEnv(gym.Env):
                 'id': edgeServer.id,
                 'location': edgeServer.location,
                 'price': edgeServer.price,
-                'contigent': edgeServer.contigent
+                'contigent': edgeServer.contigent,
+                'servingClients': [client.id for client in edgeServer.clients],
+                'money': edgeServer.money
             }
             info_dict['CDNs'].append(edge_server_info)
 
@@ -185,13 +179,12 @@ class GymSabreEnv(gym.Env):
                 'id': client.id,
                 'location': client.location,
                 'alive': client.alive,
-                'edgeServer': client.edgeServer.id if client.edgeServer else None
+                'edgeServer': client.edgeServer.id if client.edgeServer else None,
+                'qoe': client.qoe
             }
             info_dict['Clients'].append(client_info)
 
         self.data.append(info_dict)
-
-        #self.add_to_json_file('render.json', info_dict)
 
     def add_to_json_file(self, filename, new_data):
         """
@@ -232,6 +225,10 @@ class Client():
 
         # Sabre implementation
         self.sabre = Sabre(verbose=False)   
+        self.qoe = []
+        self.weightBitrate = 1
+        self.weightBitrateChange = 1
+        self.weightRebuffer = 1
 
     def setManifest(self, manifest):
         self.manifest = manifest
@@ -252,7 +249,6 @@ class Client():
         # Bandwidth
         bandwidth = self.edgeServer.currentBandwidth
 
-        # Each time a client fetches content it pays the edge-server.
         if self.edgeServer.contigent > 0:
             # Add network trace to client
             self.time = self.time - time
@@ -265,6 +261,7 @@ class Client():
         qoe = self._getQoE()
         if qoe['status'] == 'fetching':
             self.edgeServer.deductContigent(qoe['size'])
+            self.qoe.append(qoe['qoe'])
 
         return qoe
         
@@ -272,9 +269,10 @@ class Client():
         '''
         Here QoE will be computed with Sabre.
         '''
+        print('Entering Sabre.')
         result = self.sabre.downloadSegment()
         if result['done'] == False and len(result) == 6:
-            qoe = result['time_average_played_bitrate'] - result['time_average_bitrate_change'] - result['time_average_rebuffer_events']
+            qoe = result['time_average_played_bitrate'] * self.weightBitrate - result['time_average_bitrate_change'] * self.weightBitrateChange - result['time_average_rebuffer_events'] * self.weightRebuffer
             return {'qoe': qoe, 'size': result['size'], 'status': 'fetching'}
         elif result['done']:
             self._setDone()
@@ -313,7 +311,7 @@ class Client():
         distance = round(distance * 5, 2)
         return distance
 
-
+    
 class EdgeServer:
 
     def __init__(self, id, location, price=1, bandwidth_kbps=1000):
@@ -323,11 +321,13 @@ class EdgeServer:
         self.contigent = 0
         self.bandwidth_kbps = bandwidth_kbps
         self.clients = []
+        self.money = 0
 
     def sellContigent(self, cpMoney, amount):
         price = self.price * amount
         if cpMoney >= price:
             cpMoney -= price
+            self.money += price
             self.contigent += amount * 1000
         return round(cpMoney, 2)
     
