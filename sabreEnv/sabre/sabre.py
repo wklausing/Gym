@@ -435,7 +435,7 @@ class Sabre():
             size = self.util.manifest.segments[0][quality]
 
             download_metric = self.network.downloadNet(size, 0, quality, 0, None)
-            if download_metric == False: return {'done': False}
+            if download_metric == False: return {'status': 'missingTrace'}
 
             download_time = download_metric.time - download_metric.time_to_first_bit
             self.util.buffer_contents.append(download_metric.quality)
@@ -488,7 +488,7 @@ class Sabre():
             
             download_metric = self.network.downloadNet(size, current_segment, quality,
                                             self.util.get_buffer_level(), check_abandon)
-            if download_metric == False: return {'done': False}
+            if download_metric == False: return {'status': 'missingTrace'}
 
             self.util.deplete_buffer(download_metric.time) #Is 5481.8, should be 5631.8
 
@@ -541,7 +541,7 @@ class Sabre():
         to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
 
         result = {}
-        result['done'] = False
+        result['status'] = 'downloadedSegment'
         result['size'] = size
         result['buffer_size'] = self.buffer_size
         result['time_average_played_bitrate'] = 1 / (self.util.total_play_time / self.util.manifest.segment_time)#10963.599999999999 / 3000
@@ -601,7 +601,7 @@ class Sabre():
             print('total reaction time: %f' % (self.util.total_reaction_time / 1000))
 
         results_dict = {
-            'done': True,
+            'status': 'completed',
             'buffer_size': self.buffer_size,
             'total_played_utility': self.util.played_utility,
             'time_average_played_utility': self.util.played_utility * to_time_average,
@@ -636,7 +636,7 @@ class Sabre():
         i = 0
         while True:
             result = self.downloadSegment()
-            if result['done']:
+            if result['status'] == 'completed':
                 return result
             else:
                 trace = network_trace[i]

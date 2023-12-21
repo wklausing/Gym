@@ -5,3 +5,5 @@ gymsabre/sabre.egg-info/
 .vscode/
 solutions/policies/
 data/*json
+data/*csv
+.Rproj.user

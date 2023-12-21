@@ -2,13 +2,16 @@ from sabreEnv.sabre.sabre import Sabre
 import math
 import gymnasium as gym
 
+import os
+import csv
+
 class Client():
     '''
     Manifest is list with the ids of edge-server.
     cdns is list of edge-servers.
     '''
 
-    def __init__(self, id, location, cdns):
+    def __init__(self, id, location, cdns, filename, episodeCounter):
         self.id = id
         self.alive = True
         self.location = location
@@ -16,11 +19,17 @@ class Client():
         self.cdns = cdns
 
         # Sabre implementation
-        self.sabre = Sabre(verbose=False)   
+        self.sabre = Sabre(verbose=False)
+        self.qoeStatus = 'init'   
         self.qoe = []
         self.weightBitrate = 1
         self.weightBitrateChange = 1
         self.weightRebuffer = 1
+
+        # For recordings
+        self.buffered_data = []
+        self.filename = filename
+        self.episodeCounter = episodeCounter
 
     def setManifest(self, manifest):
         self.manifest = manifest
@@ -62,14 +71,17 @@ class Client():
         '''
         print('Entering Sabre.')
         result = self.sabre.downloadSegment()
-        if result['done'] == False and len(result) == 6:
+        if result['status'] == 'downloadedSegment':
+            self.qoeStatus = result['status']
             qoe = result['time_average_played_bitrate'] * self.weightBitrate - result['time_average_bitrate_change'] * self.weightBitrateChange - result['time_average_rebuffer_events'] * self.weightRebuffer
             return {'qoe': qoe, 'size': result['size'], 'status': 'fetching'}
-        elif result['done']:
+        elif result['status'] == 'completed':
+            self.qoeStatus = result['status']
             self._setDone()
-            return {'status': 'done'}
+            return {'status': 'completed'}
         else:
             gym.logger.info('Not enough trace for client %s to fetch from CDN %s.' % (self.id, self.edgeServer.id))
+            self.qoeStatus = result['status']
             return {'status': 'missingTrace'}
         
     def _changeCDN(self):
@@ -101,3 +113,21 @@ class Client():
         distance = round(math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2), 2) # Euklidean distance
         distance = round(distance * 5, 2)
         return distance
+
+    def saveData(self, finalStep=False):
+        if self.time == 0: return
+        qoe = self.qoe[-1] if len(self.qoe) > 0 and self.qoeStatus != 'missingTrace' else None
+        self.buffered_data.append([self.episodeCounter, self.time, self.manifest, self.location, self.edgeServer.id, self.edgeServer.location, self.alive, self.id, self.qoeStatus, qoe])
+        if finalStep:
+            file_exists = os.path.isfile(self.filename) and os.path.getsize(self.filename) > 0
+            with open(self.filename, 'a', newline='') as file:
+                writer = csv.writer(file)
+                if not file_exists:
+                    writer.writerow(['episode', 'time', 'manifest', 'location', 'edgeServer_id', 'edgeServer_location', 'alive', 'id', 'qoeStatus', 'qoe'])
+                
+                for row in self.buffered_data:
+                    writer.writerow(row)
+        
+        
+
+
