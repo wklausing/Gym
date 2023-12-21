@@ -1,6 +1,6 @@
 '''
-In this environment the CP-Agent has to buy contingent from edge-servers and steer clients to edge-servers. 
-Rewards are defined by QoE metrics from client which are done by Sabre.
+In this environment the CP-Agent goals is the provide all clients with a good QoE. For doing so it needs to buy contigents 
+from CDNs and create manifests for clients. The reward is the cumulative reward of all clients and the money left at the CP-Agent.
 '''
 
 import numpy as np
@@ -22,9 +22,15 @@ gym.logger.set_level(50) # Define logger level. 20 = info, 30 = warn, 40 = error
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize = 100*100, edgeServers = 4, clients = 10):
+    def __init__(self, render_mode=None, gridSize = 100*100, edgeServers = 4, clients = 10, saveData = False):
 
-        self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
+        # For recordings
+        self.saveData = saveData
+        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.clientFilename = 'data/client_' + time + '.csv'
+        self.cdnFilename = 'data/cdn_' + time + '.csv'
+        self.cpFilename = 'data/cp_' + time + '.csv'
+        self.episodeCounter = 0
 
         # Env variables
         self.gridSize = gridSize
@@ -75,7 +81,10 @@ class GymSabreEnv(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
+        # For recordings
+        self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
         self.data = []
+        self.episodeCounter += 1
         
         # Reset env variables
         self.sumReward = 0
@@ -89,13 +98,13 @@ class GymSabreEnv(gym.Env):
         self.edgeServerPrices = np.round(np.random.uniform(0.5, 2, size=self.edgeServerCount), 2)
         self.edgeServers = []
         for e in range(self.edgeServerCount):
-            self.edgeServers.append(EdgeServer(e, self.edgeServerLocations[e].item(), self.edgeServerPrices[e]))
+            self.edgeServers.append(EdgeServer(e, self.edgeServerLocations[e].item(), self.cdnFilename, self.episodeCounter, self.edgeServerPrices[e]))
 
         # Reset clients
         self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(c ,self.clientsLocations[c].item(), self.edgeServers))
+            self.clients.append(Client(c ,self.clientsLocations[c].item(), self.edgeServers, self.clientFilename, self.episodeCounter))
 
         observation = self._get_obs()
         info = {}
@@ -111,9 +120,16 @@ class GymSabreEnv(gym.Env):
         allClientsDone = all(not client.alive for client in self.clients)
         terminated = money <= 0 or time >= 7_200 or allClientsDone
 
+        # Saving data
+        if self.saveData:
+            for client in self.clients:
+                if client.alive:
+                    client.saveData(finalStep=terminated)
+            for edgeServer in self.edgeServers:
+                edgeServer.saveData(time, finalStep=terminated)
+
         if terminated:
-            name = 'render' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
-            self.add_to_json_file(name, self.data)
+            pass
         else:
             # Buy contigent
             buyContigent = action[:len(self.buyContingent)] 
