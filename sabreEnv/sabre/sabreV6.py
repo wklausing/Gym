@@ -107,6 +107,7 @@ class Util:
 
             quality = self.buffer_contents[0]
             self.played_utility += self.manifest.utilities[quality]
+            # SabreV6: time: 1688.592| 
             self.played_bitrate += self.manifest.bitrates[quality]
             if quality != self.last_played and self.last_played != None:
                 self.total_bitrate_change += abs(self.manifest.bitrates[quality] -
@@ -163,11 +164,26 @@ class Util:
             # print(p)
             self.total_reaction_time += reaction
 
-    def advertize_new_network_quality(self, quality, previous_quality):
+    # SabreV8
+    # SabreV6
+    #now: 115442.27466666666
+    #now: 115442.27466666666
+    #max_buffer_size: 25000 
+    #max_buffer_size: 25000
+    #pending_quality_up: [[89252.27200000003, 6, 111252.272]]
+    #pending_quality_up: [[90000.00000000001, 6, 111252.272]]
+
+    def advertize_new_network_quality(self, quality, previous_quality, network_total_time=None):
+        # Debugging for SabreV8
+        if network_total_time != None:
+            self.network_total_time = network_total_time
+
         # bookkeeping to track reaction time to increased bandwidth
 
         # process any previous quality up switches that have "matured"
         self.process_quality_up(self.network_total_time)
+        #network_total_time: 29630.712000000003
+        #network_total_time: 29999.999999999993        
 
         # mark any pending switch up done if new quality switches back below its quality
         for p in self.pending_quality_up:
@@ -188,6 +204,12 @@ class Util:
         # valid quality up switch
         # print([network_total_time, quality])
         self.pending_quality_up.append([self.network_total_time, quality])
+
+        # SabreV8
+        # SabreV6
+        # network_total_time: 89252.27200000003
+        # network_total_time: 90000.00000000001
+
 
 
 class NetworkModel:
