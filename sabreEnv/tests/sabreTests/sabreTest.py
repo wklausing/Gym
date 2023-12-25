@@ -5,7 +5,6 @@ from sabreEnv.sabre.sabreV2 import init as initSabreV2 # Encapsulation done
 from sabreEnv.sabre.sabreV3 import Sabre as SabreV3
 from sabreEnv.sabre.sabreV4 import Sabre as SabreV4
 from sabreEnv.sabre.sabreV6 import Sabre as SabreV6
-from sabreEnv.sabre.sabreV7 import Sabre as SabreV7
 from sabreEnv.sabre.sabreV8 import Sabre as SabreV8
 
 
@@ -34,7 +33,7 @@ class TestMainFunction(unittest.TestCase):
             'estimate': -234.28114307059911
         }
 
-    def testCheckValuesWithSabreV1(self):
+    def testSabreV1_regression(self):
         '''
         Testing original values against sabre.py
         '''
@@ -42,7 +41,7 @@ class TestMainFunction(unittest.TestCase):
         for key in self.originalResult:
             self.assertEqual(self.originalResult[key], resultSabreOriginal[key])
 
-    def testCheckValuesAgainstSabreV2(self):
+    def testSabreV2_regression(self):
         '''
         Testing sabreV1.py against sabreV2.py
         '''
@@ -56,7 +55,7 @@ class TestMainFunction(unittest.TestCase):
                 for key in resultSabreV1:
                     self.assertEqual(resultSabreV1[key], resultSabreV2[key])
 
-    def testCheckValuesAgainstSabreV3(self):
+    def testSabreV3_regression(self):
         '''
         Testing sabreV2.py against sabreV3.py
         '''
@@ -70,7 +69,7 @@ class TestMainFunction(unittest.TestCase):
                 for key in resultSabreV2:
                     self.assertEqual(resultSabreV2[key], resultSabreV3[key])
 
-    def testCheckValuesAgainstSabreV4(self):
+    def testSabreV4_regression(self):
         '''
         Testing sabreV3.py against sabreV4.py
         '''
@@ -85,7 +84,7 @@ class TestMainFunction(unittest.TestCase):
                     # print(key)
                     self.assertEqual(resultSabreV3[key], resultSabreV4[key])
         
-    def testCheckValuesAgainstSabreV6(self):
+    def testSabreV6_regression(self):
         '''
         Testing sabreV4.py against sabreV6.py
         '''
@@ -99,26 +98,8 @@ class TestMainFunction(unittest.TestCase):
                 for key in resultSabreV4:
                     # print(key)
                     self.assertEqual(resultSabreV4[key], resultSabreV6[key])
-
-    # def testCheckValuesAgainstSabreV7(self):
-    #     '''
-    #     Testing sabreV6.py against sabreV7.py. Sabre6 is broken.
-    #     '''
-    #     abrList = ['bola', 'bolae', 'throughput', 'dynamic', 'dynamicdash']
-    #     averageList = ['ewma', 'sliding']
-    #     for abr in abrList:
-    #         for average in averageList:
-    #             print('Testing: ', abr, average)
-    #             resultSabreV6 = SabreV6(abr=abr, moving_average=average, verbose=False,  replace='right').testing()
-    #             resultSabreV7 = SabreV7(abr=abr, moving_average=average, verbose=False,  replace='right').testing()
-    #             for key in resultSabreV6:
-    #                 #print(key)
-    #                 try:
-    #                     self.assertEqual(resultSabreV6[key], resultSabreV7[key])
-    #                 except AssertionError:
-    #                     print('Error: ', key, resultSabreV6[key], resultSabreV7[key])
                         
-    def testCheckValuesAgainstSabreV8(self):
+    def testSabreV8_regression(self):
         '''
         Testing sabreV6.py against sabreV8.py
         '''        
