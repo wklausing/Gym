@@ -33,7 +33,7 @@ class NetworkModel:
         #     print('Missing initial network condition')
         #     return False
 
-    def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
+    def _add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
         '''
@@ -43,14 +43,6 @@ class NetworkModel:
                                     latency=latency_ms)
         self.traces.append(network_trace)
         self.permanent = True
-
-    def remove_network_condition(self):
-        '''
-        Adds a new network condition to self.trace. Will be removed after one use.
-        '''
-        self.traces = []
-        self.index = 0
-        self.permanent = False
 
     def _next_network_period(self):
         '''
@@ -256,9 +248,9 @@ class NetworkModel:
             min_size_to_progress = NetworkModel.min_progress_size
 
             if NetworkModel.min_progress_size > 0:
-                latency = self._do_latency_delay(1)
-                total_download_time += latency
-                min_time_to_progress -= total_download_time
+                latency = self._do_latency_delay(1) # Sollte 200 sein, ist aber 100
+                total_download_time += latency # 200
+                min_time_to_progress -= total_download_time # -150
                 delay_units = 0
             else:
                 latency = None
@@ -359,7 +351,7 @@ class Sabre():
         rampup_threshold=None,
         replace='none',
         seek=None,
-        verbose=False,
+        verbose=True,
         window_size=[3]
     ):  
         self.no_abandon = no_abandon
@@ -423,19 +415,19 @@ class Sabre():
 
     def downloadSegment(self):
 
-
         # Final playout of buffer at the end.
         if self.next_segment == len(self.util.manifest.segments):
             self.util.playout_buffer()
             return self.printResults()
              
+
         # Download first segment
         if self.firstSegment:
             quality = self.abr.get_first_quality()
             size = self.util.manifest.segments[0][quality]
 
             download_metric = self.network.downloadNet(size, 0, quality, 0, None)
-            if download_metric == False: return {'status': 'missingTrace'}
+            if download_metric == False: return {'done': False}
 
             download_time = download_metric.time - download_metric.time_to_first_bit
             self.util.buffer_contents.append(download_metric.quality)
@@ -488,7 +480,7 @@ class Sabre():
             
             download_metric = self.network.downloadNet(size, current_segment, quality,
                                             self.util.get_buffer_level(), check_abandon)
-            if download_metric == False: return {'status': 'missingTrace'}
+            if download_metric == False: return {'done': False}
 
             self.util.deplete_buffer(download_metric.time) #Is 5481.8, should be 5631.8
 
@@ -537,14 +529,12 @@ class Sabre():
                 self.throughput_history.push(download_time, t, l)
 
             # loop while next_segment < len(manifest.segments)
-        print('self.util.total_play_time in seconds', self.util.total_play_time)
-        print('Buffer level:', self.util.get_buffer_level())
-        to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
         
+        # Is 10963.599999999999 but should be 11113.599999999999. Missing 150
+        to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
 
         result = {}
-        result['status'] = 'downloadedSegment'
-        result['size'] = size
+        result['done'] = False
         result['buffer_size'] = self.buffer_size
         result['time_average_played_bitrate'] = 1 / (self.util.total_play_time / self.util.manifest.segment_time)#10963.599999999999 / 3000
         result['time_average_bitrate_change'] = self.util.total_bitrate_change * to_time_average
@@ -554,6 +544,9 @@ class Sabre():
     def printResults(self):
         to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
         if self.util.verbose:
+            # multiply by to_time_average to get per/chunk average
+            count = len(self.util.manifest.segments)
+            #time = count * self.util.manifest.segment_time + self.util.rebuffer_time + startup_time
 
             print('buffer size: %d' % self.buffer_size)
             print('total played utility: %f' % self.util.played_utility)
@@ -603,7 +596,7 @@ class Sabre():
             print('total reaction time: %f' % (self.util.total_reaction_time / 1000))
 
         results_dict = {
-            'status': 'completed',
+            'done': True,
             'buffer_size': self.buffer_size,
             'total_played_utility': self.util.played_utility,
             'time_average_played_utility': self.util.played_utility * to_time_average,
@@ -630,21 +623,18 @@ class Sabre():
         return results_dict
     
     def testing(self, network='sabreEnv/sabre/data/network.json'):
-        '''
-        Runs till everything from manifest is downloaded.
-        '''
         network_trace = self.util.load_json(network)
         networkLen = len(network_trace)
         i = 0
         while True:
             result = self.downloadSegment()
-            if result['status'] == 'completed':
+            if result['done']:
                 return result
             else:
                 trace = network_trace[i]
-                self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
+                self.network._add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
                 i += 1
-                if i == networkLen: i = 0
+                if i >= networkLen: i = 0
             
 
 if __name__ == '__main__':
