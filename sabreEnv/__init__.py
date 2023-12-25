@@ -1,6 +1,6 @@
 
 from sabreEnv.gymSabre.gymsabre import GymSabreEnv
-from sabreEnv.sabre.sabre import Sabre
+from sabre.sabreV8 import Sabre
 from sabreEnv.utils.fooBarUtils import FooUtils
 from sabreEnv.wrappers.fooWrapper import SabreActionWrapper
 

@@ -76,7 +76,7 @@ class NetworkModel:
         if (self.util.sustainable_quality != previous_sustainable_quality and
                 previous_sustainable_quality != None):
             self.util.advertize_new_network_quality(
-                self.util.sustainable_quality, previous_sustainable_quality)
+                self.util.sustainable_quality, previous_sustainable_quality, self.network_total_timeTEMP)
         return True
 
     def _do_latency_delay(self, delay_units):
@@ -183,7 +183,7 @@ class NetworkModel:
                 bits = 0
                 if min_size > 0 or min_time > self.time_to_next:
                     time = self.time_to_nextTEMP
-                    self.util.network_total_timeTEMP += time
+                    self.network_total_timeTEMP += time
                     self._next_network_period()
                 else:
                     time = min_time
@@ -217,6 +217,7 @@ class NetworkModel:
         self.time_to_nextTEMP -= time
         self.network_total_timeTEMP += time
 
+        #TODO: Check if this is correct
         self.util.network_total_time = self.network_total_timeTEMP
         self.time_to_next = self.time_to_nextTEMP
 
@@ -419,7 +420,7 @@ class Sabre():
         self.replacer = Replace(1, self.util)
 
         config = {'window_size': window_size, 'half_life': half_life}
-        self.throughput_history = Ewma(config, self.util)
+        self.throughput_history = self.average_list[moving_average](config, self.util)
 
     def downloadSegment(self):
 
@@ -537,8 +538,8 @@ class Sabre():
                 self.throughput_history.push(download_time, t, l)
 
             # loop while next_segment < len(manifest.segments)
-        print('self.util.total_play_time in seconds', self.util.total_play_time)
-        print('Buffer level:', self.util.get_buffer_level())
+        # print('self.util.total_play_time in seconds', self.util.total_play_time)
+        # print('Buffer level:', self.util.get_buffer_level())
         to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
         
 
@@ -648,5 +649,5 @@ class Sabre():
             
 
 if __name__ == '__main__':
-    sabre = Sabre(verbose=True, abr='throughput', moving_average='ewma', replace='right', abr_osc=False)
+    sabre = Sabre(verbose=False, abr='throughput', moving_average='ewma', replace='right', abr_osc=False)
     sabre.testing()
