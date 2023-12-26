@@ -43,18 +43,18 @@ class TestMainFunction(unittest.TestCase):
         for abr in abrList:
             for average in averageList:
                 print('Testing: ', abr, average)
-                sabreV8 = SabreV8(abr=abr, moving_average=average, verbose=False,  replace='right')
-                sabreV9 = SabreV9(abr=abr, moving_average=average, verbose=False,  replace='right')
+                sabreV8 = SabreV8(abr=abr, moving_average=average, verbose=False, replace='right')
+                sabreV9 = SabreV9(abr=abr, moving_average=average, verbose=False, replace='right')
                 segment = 0
                 while True: 
+                    print('segment: ', segment)
                     resultSabreV8 = sabreV8.testingSegment(network='sabreEnv/sabre/data/networkTest1.json')
                     resultSabreV9 = sabreV9.testingSegment(network='sabreEnv/sabre/data/networkTest2.json')
-                    print('segment: ', segment)
-                    segment += 1
                     for key in resultSabreV8:
                         print('key: ', key, resultSabreV8[key])
                         self.assertEqual(resultSabreV8[key], resultSabreV9[key])
-                    if resultSabreV8['status'] == 'completed': break         
+                    if resultSabreV8['status'] == 'completed': break
+                    segment += 1         
 
 if __name__ == '__main__':
     unittest.main()
