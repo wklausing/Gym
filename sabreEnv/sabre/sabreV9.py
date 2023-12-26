@@ -646,6 +646,30 @@ class Sabre():
                 self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
                 i += 1
                 if i == networkLen: i = 0
+
+    network_trace = None
+    networkLen = None
+    testNetworkIndex = 0
+    def testingSegment(self, network='sabreEnv/sabre/data/network.json'):
+        '''
+        Run segment by segment.
+        '''
+        if self.network_trace == None:
+            self.network_trace = self.util.load_json(network)
+            self.networkLen = len(self.network_trace)
+            self.testNetworkIndex = 0
+            
+        while True:
+            result = self.downloadSegment()
+            if result['status'] == 'completed':
+                return result
+            elif result['status'] == 'downloadedSegment':
+                return result
+            else:
+                trace = self.network_trace[self.testNetworkIndex]
+                self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'], trace['latency_ms'])
+                self.testNetworkIndex += 1
+                if self.testNetworkIndex == self.networkLen: self.testNetworkIndex = 0
             
 
 if __name__ == '__main__':
