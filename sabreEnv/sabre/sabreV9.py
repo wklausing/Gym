@@ -479,7 +479,7 @@ class Sabre():
             if self.no_abandon:
                 check_abandon = None
 
-            size = self.util.manifest.segments[current_segment][quality]
+            size = self.util.manifest.segments[current_segment][quality] # Should be: 8067960 | Quality: 7 | Full_delay: -19000
 
             if delay > 0:
                 self.network.delayNet(delay)
@@ -489,7 +489,8 @@ class Sabre():
             
             download_metric = self.network.downloadNet(size, current_segment, quality,
                                             self.util.get_buffer_level(), check_abandon)
-            if download_metric == False: return {'status': 'missingTrace'}
+            if download_metric == False: 
+                return {'status': 'missingTrace'}
 
             self.util.deplete_buffer(download_metric.time) #Is 5481.8, should be 5631.8
 
@@ -673,5 +674,5 @@ class Sabre():
             
 
 if __name__ == '__main__':
-    sabre = Sabre(verbose=False, abr='throughput', moving_average='ewma', replace='right', abr_osc=False)
-    sabre.testing()
+    sabre = Sabre(verbose=False, abr='bolae', moving_average='ewma', replace='right')
+    sabre.testing(network='sabreEnv/sabre/data/networkTest2.json')

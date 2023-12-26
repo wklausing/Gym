@@ -673,5 +673,5 @@ class Sabre():
             
 
 if __name__ == '__main__':
-    sabre = Sabre(verbose=False, abr='throughput', moving_average='ewma', replace='right', abr_osc=False)
-    sabre.testing()
+    sabre = Sabre(verbose=False, abr='bolae', moving_average='ewma', replace='right')
+    sabre.testing(network='sabreEnv/sabre/data/networkTest1.json')
