@@ -16,7 +16,7 @@ class NetworkModel:
     min_progress_time = 50
 
     permanent = False # If false does also mean that the network trace is empty
-    network_total_timeTEMP = 0 #self.util.network_total_time
+    network_total_timeTEMP = 0
 
     def __init__(self, util, duration_ms=1000, bandwidth_kbps=100, latency_ms=100):
         self.util = util
@@ -28,10 +28,6 @@ class NetworkModel:
         self.indexTEMP = -1
         self.time_to_next = 0
         self.time_to_nextTEMP = 0
-        # self._add_network_condition(duration_ms, bandwidth_kbps, latency_ms)
-        # if self._next_network_period() == False:
-        #     print('Missing initial network condition')
-        #     return False
 
     def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
@@ -86,7 +82,7 @@ class NetworkModel:
         '''
         total_delay = 0
         while delay_units > 0:
-            current_latency = self.traces[self.indexTEMP].latency # 200
+            current_latency = self.traces[self.indexTEMP].latency
             time = delay_units * current_latency
             if time <= self.time_to_nextTEMP:
                 total_delay += time
@@ -109,7 +105,7 @@ class NetworkModel:
         while size >= 0:
             current_bandwidth = self.traces[self.indexTEMP].bandwidth
             if size <= self.time_to_nextTEMP * current_bandwidth:
-                time = size / current_bandwidth #1481.8 = 296360 / 200 | 1531.8 = 306360.0 / 200
+                time = size / current_bandwidth
                 total_download_time += time
                 self.network_total_timeTEMP += time
                 self.time_to_nextTEMP -= time
@@ -118,7 +114,6 @@ class NetworkModel:
                 total_download_time += self.time_to_nextTEMP
                 self.network_total_timeTEMP += self.time_to_nextTEMP
                 size -= self.time_to_nextTEMP * current_bandwidth
-                #print('size', size, 'time_to_nextTEMP', self.time_to_nextTEMP, 'current_bandwidth', current_bandwidth)
                 self._next_network_period()
                 if self.permanent == False: break
         return total_download_time
@@ -424,7 +419,6 @@ class Sabre():
 
     def downloadSegment(self):
 
-
         # Final playout of buffer at the end.
         if self.next_segment == len(self.util.manifest.segments):
             self.util.playout_buffer()
@@ -491,7 +485,7 @@ class Sabre():
                                             self.util.get_buffer_level(), check_abandon)
             if download_metric == False: return {'status': 'missingTrace'}
 
-            self.util.deplete_buffer(download_metric.time) #Is 5481.8, should be 5631.8
+            self.util.deplete_buffer(download_metric.time)
 
             # Update buffer with new download
             if replace == None:
