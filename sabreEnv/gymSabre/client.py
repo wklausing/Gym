@@ -1,4 +1,4 @@
-from sabreEnv.sabre.sabre import Sabre
+from sabreEnv.sabre.sabreV8 import Sabre
 import math
 import gymnasium as gym
 

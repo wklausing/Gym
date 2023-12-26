@@ -4,15 +4,19 @@ from stable_baselines3 import A2C
 from gymnasium.wrappers import FlattenObservation
 
 
-print('Start training')
+print('Setup environment')
 
-env = gym.make("gymsabre-v0")
 env_name = "gymsabre-v0"
+env = gym.make(env_name, gridSize=100*100, edgeServers=4, clients=10, saveData=False)
 env = FlattenObservation(env)
-model = A2C("MlpPolicy", env).learn(total_timesteps=100_000, progress_bar=True)
-model.save("solutions/policies/a2c_gymsabre-v1")
+
+# print('Start training')
+
+# model = A2C("MlpPolicy", env).learn(total_timesteps=300_000, progress_bar=True)
+# model.save("solutions/policies/a2c_gymsabre-v2")
 
 print('Finished training')
+
 print('Start using model')
 
 model = A2C.load('solutions/policies/a2c_gymsabre-v1', env=env) 
