@@ -18,7 +18,7 @@ class NetworkModel:
     permanent = False # If false does also mean that the network trace is empty
     network_total_timeTEMP = 0 #self.util.network_total_time
 
-    def __init__(self, util, duration_ms=1000, bandwidth_kbps=100, latency_ms=100):
+    def __init__(self, util):
         self.util = util
 
         self.util.sustainable_quality = None
@@ -28,10 +28,6 @@ class NetworkModel:
         self.indexTEMP = -1
         self.time_to_next = 0
         self.time_to_nextTEMP = 0
-        # self._add_network_condition(duration_ms, bandwidth_kbps, latency_ms)
-        # if self._next_network_period() == False:
-        #     print('Missing initial network condition')
-        #     return False
 
     def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
@@ -109,7 +105,7 @@ class NetworkModel:
         while size >= 0:
             current_bandwidth = self.traces[self.indexTEMP].bandwidth
             if size <= self.time_to_nextTEMP * current_bandwidth:
-                time = size / current_bandwidth #1481.8 = 296360 / 200 | 1531.8 = 306360.0 / 200
+                time = size / current_bandwidth
                 total_download_time += time
                 self.network_total_timeTEMP += time
                 self.time_to_nextTEMP -= time
@@ -118,7 +114,6 @@ class NetworkModel:
                 total_download_time += self.time_to_nextTEMP
                 self.network_total_timeTEMP += self.time_to_nextTEMP
                 size -= self.time_to_nextTEMP * current_bandwidth
-                #print('size', size, 'time_to_nextTEMP', self.time_to_nextTEMP, 'current_bandwidth', current_bandwidth)
                 self._next_network_period()
                 if self.permanent == False: break
         return total_download_time
@@ -228,7 +223,7 @@ class NetworkModel:
         if self.permanent == False: return False
 
         downloadProgress = False # Assuming not enough trace 
-        self.network_total_timeTEMP = self.util.network_total_time # 518.2
+        self.network_total_timeTEMP = self.util.network_total_time
         self.time_to_nextTEMP = self.time_to_next
         self.indexTEMP = self.index
 
@@ -422,8 +417,9 @@ class Sabre():
         config = {'window_size': window_size, 'half_life': half_life}
         self.throughput_history = self.average_list[moving_average](config, self.util)
 
-    def downloadSegment(self):
+        self.foo = True
 
+    def downloadSegment(self):
 
         # Final playout of buffer at the end.
         if self.next_segment == len(self.util.manifest.segments):
@@ -449,50 +445,67 @@ class Sabre():
             self.abandoned_to_quality = None
         else:
             # Download rest of segments
+            if self.next_segment == 70:
+                pass # 6482800 != 9404888
 
             # do we have space for a new segment on the buffer?
-            full_delay = self.util.get_buffer_level() + self.util.manifest.segment_time - self.buffer_size
+            if self.foo:
+                full_delay = self.util.get_buffer_level() + self.util.manifest.segment_time - self.buffer_size
 
-            if full_delay > 0:
-                self.network.delayNet(full_delay)
-                self.util.deplete_buffer(full_delay)
-                self.abr.report_delay(full_delay)
-                if self.util.verbose:
-                    print('full buffer delay %d bl=%d' %
-                        (full_delay, self.util.get_buffer_level()))
+                if full_delay > 0:
+                    self.network.delayNet(full_delay)
+                    self.util.deplete_buffer(full_delay)
+                    self.abr.report_delay(full_delay)
+                    if self.util.verbose:
+                        print('full buffer delay %d bl=%d' %
+                            (full_delay, self.util.get_buffer_level()))
 
-            if self.abandoned_to_quality == None:
-                (quality, delay) = self.abr.get_quality_delay(self.next_segment)
-                replace = self.replacer.check_replace(quality)
+                if self.abandoned_to_quality == None:
+                    (quality, delay) = self.abr.get_quality_delay(self.next_segment)#8, 0
+                    replace = self.replacer.check_replace(quality)
+                else:
+                    (quality, delay) = (self.abandoned_to_quality, 0)
+                    replace = None
+                    self.abandon_to_quality = None
+
+                if replace != None:
+                    delay = 0
+                    current_segment = self.next_segment + replace
+                    check_abandon = self.replacer.check_abandon
+                else:
+                    current_segment = self.next_segment
+                    check_abandon = self.abr.check_abandon
+                if self.no_abandon:
+                    check_abandon = None
+
+                size = self.util.manifest.segments[current_segment][quality]
+
+                if delay > 0:
+                    self.network.delayNet(delay)
+                    self.util.deplete_buffer(delay)
+                    if self.util.verbose:
+                        print('abr delay %d bl=%d' % (delay, self.util.get_buffer_level()))
+
+                (self.qualityTEMP, self.delayTEMP) = (quality, delay)
+                self.replaceTemp = replace
+                self.current_segmentTemp = current_segment
+                self.check_abandonTEMP = check_abandon
+                self.sizeTEMP = size
             else:
-                (quality, delay) = (self.abandoned_to_quality, 0)
-                replace = None
-                self.abandon_to_quality = None
-
-            if replace != None:
-                delay = 0
-                current_segment = self.next_segment + replace
-                check_abandon = self.replacer.check_abandon
-            else:
-                current_segment = self.next_segment
-                check_abandon = self.abr.check_abandon
-            if self.no_abandon:
-                check_abandon = None
-
-            size = self.util.manifest.segments[current_segment][quality] # Should be: 8067960 | Quality: 7 | Full_delay: -19000
-
-            if delay > 0:
-                self.network.delayNet(delay)
-                self.util.deplete_buffer(delay)
-                if self.util.verbose:
-                    print('abr delay %d bl=%d' % (delay, self.util.get_buffer_level()))
+                (quality, delay) = (self.qualityTEMP, self.delayTEMP)
+                replace = self.replaceTemp
+                current_segment = self.current_segmentTemp
+                check_abandon = self.check_abandonTEMP
+                size = self.sizeTEMP
+                self.foo = True
             
             download_metric = self.network.downloadNet(size, current_segment, quality,
                                             self.util.get_buffer_level(), check_abandon)
             if download_metric == False: 
+                self.foo = False
                 return {'status': 'missingTrace'}
 
-            self.util.deplete_buffer(download_metric.time) #Is 5481.8, should be 5631.8
+            self.util.deplete_buffer(download_metric.time)
 
             # Update buffer with new download
             if replace == None:
