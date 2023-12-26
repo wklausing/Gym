@@ -243,7 +243,9 @@ if __name__ == "__main__":
         if terminated or truncated:
             observation, info = env.reset()
 
-        if reward != 0: print(reward)
+        if reward != 0: 
+            print('time:', i)
+            print(reward)
 
     env.close()
     print('### Done ###')
