@@ -167,65 +167,10 @@ class GymSabreEnv(gym.Env):
         info = self._get_info(reward)
 
         return observation, reward, terminated, False, info
-    
-    data = []
 
     def render(self, mode="human"):
-
-        info_dict = {
-            'time': self.time.item(),
-            'CDNs': [],
-            'Clients': []
-        }
-
-        # Adding CDN information
-        for edgeServer in self.edgeServers:
-            edge_server_info = {
-                'id': edgeServer.id,
-                'location': edgeServer.location,
-                'price': edgeServer.price,
-                'contigent': edgeServer.contigent,
-                'servingClients': [client.id for client in edgeServer.clients],
-                'money': edgeServer.money
-            }
-            info_dict['CDNs'].append(edge_server_info)
-
-        # Adding Client information
-        for client in self.clients:
-            client_info = {
-                'id': client.id,
-                'location': client.location,
-                'alive': client.alive,
-                'edgeServer': client.edgeServer.id if client.edgeServer else None,
-                'qoe': client.qoe
-            }
-            info_dict['Clients'].append(client_info)
-
-        self.data.append(info_dict)
-
-    def add_to_json_file(self, filename, new_data):
-        """
-        Adds a new entry to a JSON file. Creates the file with the initial data if it doesn't exist.
-
-        :param filename: The name of the JSON file.
-        :param new_data: The new data entry (a dictionary) to be added.
-        """
-        # Check if file exists
-        if os.path.isfile(self.filename):
-            # Read existing data
-            with open(self.filename, 'r') as file:
-                data = json.load(file)
-        else:
-            # Create an empty list if file does not exist
-            data = []
-
-        # Add new data entry
-        data.append(new_data)
-
-        # Write data back to file
-        with open(self.filename, 'w') as file:
-            json.dump(data, file, indent=4)
-
+        pass
+        
 
 if __name__ == "__main__":
     print('### Start ###')
