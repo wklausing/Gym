@@ -148,12 +148,12 @@ class GymSabreEnv(gym.Env):
                         m = manifest[start:4+start]
                         client.setManifest(m)
                     result = client.fetchContent(time)
-                    if result['status'] == 'fetching':
+                    if result['status'] == 'downloadedSegment' or result['status'] == 'completed':
                         reward += result['qoe']
-                    elif result['status'] == 'done':
-                        gym.logger.info('Client %s is done.' % client.id)
                     elif result['status'] == 'missingTrace':
                         gym.logger.info('Client %s was missing trace.' % client.id)
+                    elif result['status'] == 'delay':
+                        gym.logger.info('Client has delay of %s.' % result['delay'])
                     else:
                         gym.logger.info('Client %s could not fetch content from CND %s.' % (client.id, client.edgeServer.id))                 
 
@@ -244,7 +244,7 @@ if __name__ == "__main__":
             observation, info = env.reset()
 
         if reward != 0: 
-            print('time:', i)
+            print('step:', i)
             print(reward)
 
     env.close()

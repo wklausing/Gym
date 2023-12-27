@@ -424,12 +424,15 @@ class Sabre():
         # Final playout of buffer at the end.
         if self.next_segment == len(self.util.manifest.segments):
             self.util.playout_buffer()
-            return self.printResults()
+            result = self.createMetrics()
+            result['status'] = 'completed'
+            return result
              
         # Download first segment
         if self.firstSegment:
             quality = self.abr.get_first_quality()
             size = self.util.manifest.segments[0][quality]
+            self.sizeTEMP = size
 
             download_metric = self.network.downloadNet(size, 0, quality, 0, None)
             if download_metric == False: return {'status': 'missingTrace'}
@@ -459,6 +462,7 @@ class Sabre():
                     if self.util.verbose:
                         print('full buffer delay %d bl=%d' %
                             (full_delay, self.util.get_buffer_level()))
+                    return {'status': 'delay', 'delay': full_delay}
 
                 if self.abandoned_to_quality == None:
                     (quality, delay) = self.abr.get_quality_delay(self.next_segment)#8, 0
@@ -480,19 +484,21 @@ class Sabre():
 
                 size = self.util.manifest.segments[current_segment][quality]
 
+                self.qualityTEMP = quality
+                self.replaceTemp = replace
+                self.current_segmentTemp = current_segment
+                self.check_abandonTEMP = check_abandon
+                self.sizeTEMP = size
+
                 if delay > 0:
                     self.network.delayNet(delay)
                     self.util.deplete_buffer(delay)
                     if self.util.verbose:
                         print('abr delay %d bl=%d' % (delay, self.util.get_buffer_level()))
-
-                (self.qualityTEMP, self.delayTEMP) = (quality, delay)
-                self.replaceTemp = replace
-                self.current_segmentTemp = current_segment
-                self.check_abandonTEMP = check_abandon
-                self.sizeTEMP = size
+                    return {'status': 'delay', 'delay': delay}
+                    
             else:
-                (quality, delay) = (self.qualityTEMP, self.delayTEMP)
+                quality = self.qualityTEMP
                 replace = self.replaceTemp
                 current_segment = self.current_segmentTemp
                 check_abandon = self.check_abandonTEMP
@@ -554,71 +560,15 @@ class Sabre():
             # loop while next_segment < len(manifest.segments)
         # print('self.util.total_play_time in seconds', self.util.total_play_time)
         # print('Buffer level:', self.util.get_buffer_level())
-        to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
         
-
-        result = {}
+        result = self.createMetrics()
         result['status'] = 'downloadedSegment'
-        result['size'] = size
-        result['buffer_size'] = self.buffer_size
-        result['time_average_played_bitrate'] = 1 / (self.util.total_play_time / self.util.manifest.segment_time)#10963.599999999999 / 3000
-        result['time_average_bitrate_change'] = self.util.total_bitrate_change * to_time_average
-        result['time_average_rebuffer_events'] = self.util.rebuffer_event_count * to_time_average
         return result
     
-    def printResults(self):
+    def createMetrics(self):
         to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
-        if self.util.verbose:
-
-            print('buffer size: %d' % self.buffer_size)
-            print('total played utility: %f' % self.util.played_utility)
-            print('time average played utility: %f' %
-                (self.util.played_utility * to_time_average))
-            print('total played bitrate: %f' % self.util.played_bitrate)
-            print('time average played bitrate: %f' %
-                (self.util.played_bitrate * to_time_average))
-            print('total play time: %f' % (self.util.total_play_time / 1000))
-            print('total play time chunks: %f' %
-                (self.util.total_play_time / self.util.manifest.segment_time))
-            print('total rebuffer: %f' % (self.util.rebuffer_time / 1000))
-            print('rebuffer ratio: %f' % (self.util.rebuffer_time / self.util.total_play_time))
-            print('time average rebuffer: %f' %
-                (self.util.rebuffer_time / 1000 * to_time_average))
-            print('total rebuffer events: %f' % self.util.rebuffer_event_count)
-            print('time average rebuffer events: %f' %
-                (self.util.rebuffer_event_count * to_time_average))
-            print('total bitrate change: %f' % self.util.total_bitrate_change)
-            print('time average bitrate change: %f' %
-                (self.util.total_bitrate_change * to_time_average))
-            print('total log bitrate change: %f' % self.util.total_log_bitrate_change)
-            print('time average log bitrate change: %f' %
-                (self.util.total_log_bitrate_change * to_time_average))
-            print('time average score: %f' %
-                (to_time_average * (self.util.played_utility -
-                                    self.gamma_p * self.util.rebuffer_time / self.util.manifest.segment_time)))
-
-            if self.overestimate_count == 0:
-                print('over estimate count: 0')
-                print('over estimate: 0')
-            else:
-                print('over estimate count: %d' % self.overestimate_count)
-                print('over estimate: %f' % self.overestimate_average)
-            if self.goodestimate_count == 0:
-                print('leq estimate count: 0')
-                print('leq estimate: 0')
-            else:
-                print('leq estimate count: %d' % self.goodestimate_count)
-                print('leq estimate: %f' % self.goodestimate_average)
-            print('estimate: %f' % self.estimate_average)
-            if self.util.rampup_time == None:
-                print('rampup time: %f' %
-                    (len(self.util.manifest.segments) * self.util.manifest.segment_time / 1000))
-            else:
-                print('rampup time: %f' % (self.util.rampup_time / 1000))
-            print('total reaction time: %f' % (self.util.total_reaction_time / 1000))
-
         results_dict = {
-            'status': 'completed',
+            'size': self.sizeTEMP,
             'buffer_size': self.buffer_size,
             'total_played_utility': self.util.played_utility,
             'time_average_played_utility': self.util.played_utility * to_time_average,
