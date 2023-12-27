@@ -1,4 +1,4 @@
-from sabreEnv.sabre.sabreV8 import Sabre
+from sabreEnv.sabre.sabreV9 import Sabre
 import math
 import gymnasium as gym
 
@@ -22,6 +22,7 @@ class Client():
         self.sabre = Sabre(verbose=False)
         self.qoeStatus = 'init'   
         self.qoe = []
+        self.delay = 0
         self.weightBitrate = 1
         self.weightBitrateChange = 1
         self.weightRebuffer = 1
@@ -42,6 +43,9 @@ class Client():
         If fetch origin can delivier than return 1. If not than increase idxCDN to select next server and return -1.
         Here Sabre should be used to get a real reward based on QoE.
         '''
+        if self.delay > 0:
+            self.delay -= 1
+            return {'status': 'delay', 'delay': self.delay}
         self.time = time
 
         # Distance between client and edge-server. Used for latency calculation.
@@ -59,30 +63,42 @@ class Client():
             self.sabre.network.remove_network_condition()
 
         qoe = self._getQoE()
-        if qoe['status'] == 'fetching':
-            self.edgeServer.deductContigent(qoe['size'])
+        if qoe['status'] == 'downloadedSegment':
+            #TODO self.edgeServer.deductContigent(qoe['size'])
             self.qoe.append(qoe['qoe'])
-
+        if qoe['status'] == 'completed':
+            self.qoe.append(qoe['qoe'])
         return qoe
         
     def _getQoE(self):
         '''
-        Here QoE will be computed with Sabre.
+        Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
         '''
-        print('Entering Sabre.')
-        result = self.sabre.downloadSegment()
-        if result['status'] == 'downloadedSegment':
-            self.qoeStatus = result['status']
-            qoe = result['time_average_played_bitrate'] * self.weightBitrate - result['time_average_bitrate_change'] * self.weightBitrateChange - result['time_average_rebuffer_events'] * self.weightRebuffer
-            return {'qoe': qoe, 'size': result['size'], 'status': 'fetching'}
-        elif result['status'] == 'completed':
-            self.qoeStatus = result['status']
-            self._setDone()
-            return {'status': 'completed'}
-        else:
+        metrics = self._getSabreMetrics()
+        if metrics['status'] == 'completed' or metrics['status'] == 'downloadedSegment':
+            qoe = metrics['time_average_played_bitrate'] * self.weightBitrate - metrics['time_average_bitrate_change'] * \
+                self.weightBitrateChange - metrics['time_average_rebuffer_events'] * self.weightRebuffer
+            return {'status': metrics['status'], 'qoe': qoe}
+        elif metrics['status'] == 'delay':
+            metrics['delay'] = round(metrics['delay'] / 1000, 0)
+            self.delay += metrics['delay']
+            return metrics
+        elif metrics['status'] == 'missingTrace':
             gym.logger.info('Not enough trace for client %s to fetch from CDN %s.' % (self.id, self.edgeServer.id))
-            self.qoeStatus = result['status']
-            return {'status': 'missingTrace'}
+            return metrics
+        else:
+            gym.logger.error('Unknown Sabre status: %s' % metrics['status'])
+            quit()
+    
+    def _getSabreMetrics(self):
+        '''
+        Entering Sabre to get calculate metrics.
+        '''
+        #print('Entering Sabre.')
+        result = self.sabre.downloadSegment()
+        self.qoeStatus = result['status']
+        if result['status'] == 'completed': self._setDone()
+        return result
         
     def _changeCDN(self):
         '''
