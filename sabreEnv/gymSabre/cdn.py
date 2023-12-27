@@ -6,7 +6,9 @@ import csv
 
 class EdgeServer:
 
-    def __init__(self, id, location, filename, episodeCounter, price=1, bandwidth_kbps=1000):
+    def __init__(self, util, id, location, filename, price=1, bandwidth_kbps=1000):
+        self.util = util
+
         self.id = id
         self.location = location
         self.price = price
@@ -17,7 +19,6 @@ class EdgeServer:
         self.money = 0
 
         self.filename = filename
-        self.episodeCounter = episodeCounter
         self.buffered_data = []
 
     def sellContigent(self, cpMoney, amount):
@@ -54,7 +55,7 @@ class EdgeServer:
         if time == 0: return
 
         client_ids = [client.id for client in self.clients]
-        self.buffered_data.append([self.episodeCounter, time, self.id, np.array(client_ids), self.bandwidth_kbps, self.currentBandwidth, self.contigent, self.money])
+        self.buffered_data.append([self.util.episodeCounter, time, self.id, np.array(client_ids), self.bandwidth_kbps, self.currentBandwidth, self.contigent, self.money])
         
         if finalStep:
             file_exists = os.path.isfile(self.filename) and os.path.getsize(self.filename) > 0
