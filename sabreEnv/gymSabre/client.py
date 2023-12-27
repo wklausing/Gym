@@ -11,26 +11,27 @@ class Client():
     cdns is list of edge-servers.
     '''
 
-    def __init__(self, id, location, cdns, filename, episodeCounter):
+    def __init__(self, id, location, cdns, util):
+        self.util = util
+
         self.id = id
         self.alive = True
         self.location = location
-        self.time = 0
+        self.time = -1
         self.cdns = cdns
 
         # Sabre implementation
         self.sabre = Sabre(verbose=False)
         self.qoeStatus = 'init'   
-        self.qoe = []
+        self.sabreMetrics = []
         self.delay = 0
         self.weightBitrate = 1
         self.weightBitrateChange = 1
         self.weightRebuffer = 1
 
         # For recordings
-        self.buffered_data = []
-        self.filename = filename
-        self.episodeCounter = episodeCounter
+        self.buffData = []
+        self.buffDataStep = {}
 
     def setManifest(self, manifest):
         self.manifest = manifest
@@ -38,57 +39,72 @@ class Client():
         self.edgeServer = self.cdns[self.manifest[self.idxManifest]]
         self.edgeServer.addClient(self)
 
-    def fetchContent(self, time):
+    def step(self, time):
         '''
-        If fetch origin can delivier than return 1. If not than increase idxCDN to select next server and return -1.
-        Here Sabre should be used to get a real reward based on QoE.
+        Client will do its move. It will download a segment from the edge-server, or do nothing if there is a delay caused by Sabre.
         '''
-        if self.delay > 0:
+        # Delay
+        if self.time == time:
+            gym.logger.error('Client %s has already done its move for time %s.' % (self.id, time))
+            result = {'status': 'delay', 'delay': self.delay}
+        elif self.delay > 0:
             self.delay -= 1
-            return {'status': 'delay', 'delay': self.delay}
-        self.time = time
-
-        # Distance between client and edge-server. Used for latency calculation.
-        latency = self._determineLatency(self.location, self.edgeServer.location)
-
-        # Bandwidth
-        bandwidth = self.edgeServer.currentBandwidth
-
-        if self.edgeServer.contigent > 0:
-            # Add network trace to client
-            self.sabre.network.add_network_condition(duration_ms=1000, bandwidth_kbps=bandwidth, latency_ms=latency)
+            result = {'status': 'delay', 'delay': self.delay}
         else:
-            gym.logger.info('Not enough contingent for client %s at CDN %s.' % (self.id, self.edgeServer.id))
-            self._changeCDN()
-            self.sabre.network.remove_network_condition()
+            # Delay is over
+            self.time = time
 
-        qoe = self._getQoE()
-        if qoe['status'] == 'downloadedSegment':
-            #TODO self.edgeServer.deductContigent(qoe['size'])
-            self.qoe.append(qoe['qoe'])
-        if qoe['status'] == 'completed':
-            self.qoe.append(qoe['qoe'])
-        return qoe
+            # Network conditions
+            # Distance between client and edge-server. Used for latency calculation.
+            latency = self._determineLatency(self.location, self.edgeServer.location)
+            bandwidth = self.edgeServer.currentBandwidth
+            self.buffDataStep['network'] = {'latency': latency, 'bandwidth': bandwidth}
+
+            if self.edgeServer.contigent > 0:
+                # Add network trace to client
+                self.sabre.network.add_network_condition(duration_ms=1000, bandwidth_kbps=bandwidth, latency_ms=latency)
+            else:
+                gym.logger.info('Not enough contingent for client %s at CDN %s.' % (self.id, self.edgeServer.id))
+                self._changeCDN()
+                self.sabre.network.remove_network_condition()
+
+            result = self._fetch()
         
-    def _getQoE(self):
+        # Save Data for later
+        
+
+        self.buffData.append(self.buffDataStep)
+        self.buffDataStep = {} # Reset
+        if self.id == 0:
+            print('Client %s: %s' % (self.id, result))
+        self.saveData()
+
+        return result
+        
+    def _fetch(self):
         '''
         Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
         '''
         metrics = self._getSabreMetrics()
+        if metrics['status'] == 'completed' and self.id==0:
+            pass
+
         if metrics['status'] == 'completed' or metrics['status'] == 'downloadedSegment':
-            qoe = metrics['time_average_played_bitrate'] * self.weightBitrate - metrics['time_average_bitrate_change'] * \
-                self.weightBitrateChange - metrics['time_average_rebuffer_events'] * self.weightRebuffer
-            return {'status': metrics['status'], 'qoe': qoe}
+            qoe = metrics['time_average_played_bitrate'] * self.weightBitrate - metrics['time_average_bitrate_change'] * self.weightBitrateChange - metrics['time_average_rebuffer_events'] * self.weightRebuffer
+            result = {'status': metrics['status'], 'qoe': qoe}
         elif metrics['status'] == 'delay':
             metrics['delay'] = round(metrics['delay'] / 1000, 0)
-            self.delay += metrics['delay']
-            return metrics
+            result = {'status': 'delay'}
         elif metrics['status'] == 'missingTrace':
             gym.logger.info('Not enough trace for client %s to fetch from CDN %s.' % (self.id, self.edgeServer.id))
-            return metrics
+            result = {'status': 'missingTrace'}
         else:
             gym.logger.error('Unknown Sabre status: %s' % metrics['status'])
             quit()
+
+        self.buffDataStep = {**metrics, **result}
+
+        return result
     
     def _getSabreMetrics(self):
         '''
@@ -131,19 +147,11 @@ class Client():
         return distance
 
     def saveData(self, finalStep=False):
-        if self.time == 0: return
-        qoe = self.qoe[-1] if len(self.qoe) > 0 and self.qoeStatus != 'missingTrace' else None
-        self.buffered_data.append([self.episodeCounter, self.time, self.manifest, self.location, self.edgeServer.id, self.edgeServer.location, self.alive, self.id, self.qoeStatus, qoe])
-        if finalStep:
-            file_exists = os.path.isfile(self.filename) and os.path.getsize(self.filename) > 0
-            with open(self.filename, 'a', newline='') as file:
-                writer = csv.writer(file)
-                if not file_exists:
-                    writer.writerow(['episode', 'time', 'manifest', 'location', 'edgeServer_id', 'edgeServer_location', 'alive', 'id', 'qoeStatus', 'qoe'])
-                
-                for row in self.buffered_data:
-                    writer.writerow(row)
-        
-        
-
-
+        if self.time == -1:
+            return
+        elif finalStep:
+            metaData = {'episode': self.util.episodeCounter, 'time': self.time, 'manifest': self.manifest, 'location': self.location, 'edgeServer_id': self.edgeServer.id, 'edgeServer_location': self.edgeServer.location, 'alive': self.alive, 'id': self.id}
+            self.buffData
+            self.util.clientCsvExport(metaData, self.buffData)
+        else:
+            gym.logger.error('Error in saveData() for clients.')

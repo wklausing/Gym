@@ -9,28 +9,26 @@ from gymnasium import spaces
 
 from gymnasium.wrappers import RecordEpisodeStatistics
 
-import json
-import os
-
 from datetime import datetime
 
 from sabreEnv.gymSabre.client import Client
 from sabreEnv.gymSabre.cdn import EdgeServer
+from sabreEnv.gymSabre.util import Util
 
 gym.logger.set_level(50) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize = 100*100, edgeServers = 4, clients = 10, saveData = False):
-
+    def __init__(self, render_mode=None, gridSize=100*100, edgeServers=4, clients=10, saveData=False):
+        # Util
+        self.util = Util()
+        
         # For recordings
         self.saveData = saveData
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.clientFilename = 'data/client_' + time + '.csv'
         self.cdnFilename = 'data/cdn_' + time + '.csv'
         self.cpFilename = 'data/cp_' + time + '.csv'
-        self.episodeCounter = 0
 
         # Env variables
         self.gridSize = gridSize
@@ -84,7 +82,7 @@ class GymSabreEnv(gym.Env):
         # For recordings
         self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
         self.data = []
-        self.episodeCounter += 1
+        self.util.episodeCounter += 1
         
         # Reset env variables
         self.sumReward = 0
@@ -98,13 +96,13 @@ class GymSabreEnv(gym.Env):
         self.edgeServerPrices = np.round(np.random.uniform(0.5, 2, size=self.edgeServerCount), 2)
         self.edgeServers = []
         for e in range(self.edgeServerCount):
-            self.edgeServers.append(EdgeServer(e, self.edgeServerLocations[e].item(), self.cdnFilename, self.episodeCounter, self.edgeServerPrices[e]))
+            self.edgeServers.append(EdgeServer(self.util, e, self.edgeServerLocations[e].item(), self.cdnFilename, self.edgeServerPrices[e]))
 
         # Reset clients
         self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(c ,self.clientsLocations[c].item(), self.edgeServers, self.clientFilename, self.episodeCounter))
+            self.clients.append(Client(c ,self.clientsLocations[c].item(), self.edgeServers, util=self.util))
 
         observation = self._get_obs()
         info = {}
@@ -123,7 +121,7 @@ class GymSabreEnv(gym.Env):
         # Saving data
         if self.saveData:
             for client in self.clients:
-                if client.alive:
+                if client.alive == False or terminated:
                     client.saveData(finalStep=terminated)
             for edgeServer in self.edgeServers:
                 edgeServer.saveData(time, finalStep=terminated)
@@ -147,13 +145,13 @@ class GymSabreEnv(gym.Env):
                         start = client.id*4
                         m = manifest[start:4+start]
                         client.setManifest(m)
-                    result = client.fetchContent(time)
+                    result = client.step(time)
                     if result['status'] == 'downloadedSegment' or result['status'] == 'completed':
                         reward += result['qoe']
                     elif result['status'] == 'missingTrace':
                         gym.logger.info('Client %s was missing trace.' % client.id)
                     elif result['status'] == 'delay':
-                        gym.logger.info('Client has delay of %s.' % result['delay'])
+                        gym.logger.info('Client has delay of.')
                     else:
                         gym.logger.info('Client %s could not fetch content from CND %s.' % (client.id, client.edgeServer.id))                 
 
@@ -174,7 +172,7 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=10, edgeServers=4)
+    env = GymSabreEnv(render_mode="human", clients=1, edgeServers=4, saveData=True)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
