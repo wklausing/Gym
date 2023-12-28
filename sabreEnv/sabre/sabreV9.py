@@ -29,6 +29,7 @@ class NetworkModel:
         self.time_to_next = 0
         self.time_to_nextTEMP = 0
 
+    timeNetCondition = 0
     def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
@@ -39,6 +40,7 @@ class NetworkModel:
                                     latency=latency_ms)
         self.traces.append(network_trace)
         self.permanent = True
+        self.timeNetCondition += duration_ms
 
     def remove_network_condition(self):
         '''
@@ -118,6 +120,52 @@ class NetworkModel:
                 if self.permanent == False: break
         return total_download_time
         
+    def testDownload(self, size, trace):
+        '''
+        Test if download is possible for given size and trace .
+        '''
+        index = 0
+        time_to_next = 0
+
+        ### Latency
+        delay_units = 1
+        total_delay = 0
+        while delay_units > 0:
+            current_latency = trace[index].latency
+            time = delay_units * current_latency
+            if time <= time_to_next:
+                total_delay += time
+                time_to_next -= time
+                delay_units = 0
+            else:
+                total_delay += time_to_next
+                delay_units -= time_to_next / current_latency
+                index += 1
+                if index >= len(trace): return False
+                time_to_next = trace[index].time
+                
+        ### Download
+        total_trace_time = sum([t.time for t in trace])
+
+        if total_trace_time > total_delay:
+            index = 0
+            
+            total_download_time = 0
+            while size >= 0:
+                current_bandwidth = trace[index].bandwidth
+                if size <= time_to_next * current_bandwidth:
+                    time = size / current_bandwidth
+                    total_download_time += time
+                    time_to_next -= time
+                    break
+                else:
+                    total_download_time += time_to_next
+                    size -= time_to_next * current_bandwidth
+                    index += 1
+                    if index >= len(trace): return False
+                    time_to_next = trace[index].time
+            return total_download_time + total_delay
+        return False
 
     def _do_minimal_latency_delay(self, delay_units, min_time):
         total_delay_units = 0
@@ -425,9 +473,10 @@ class Sabre():
         if self.next_segment == len(self.util.manifest.segments):
             self.util.playout_buffer()
             result = self.createMetrics()
+            result['download_time'] = 0
             result['status'] = 'completed'
             return result
-             
+            
         # Download first segment
         if self.firstSegment:
             quality = self.abr.get_first_quality()
@@ -442,14 +491,12 @@ class Sabre():
             t = download_metric.size / download_time # t represents throughput per ms
             l = download_metric.time_to_first_bit
             self.throughput_history.push(download_time, t, l)
-            self.util.total_play_time += download_metric.time # 5481.8
+            self.util.total_play_time += download_metric.time
             self.firstSegment = False
             self.next_segment = 1
             self.abandoned_to_quality = None
         else:
             # Download rest of segments
-            if self.next_segment == 70:
-                pass # 6482800 != 9404888
 
             # do we have space for a new segment on the buffer?
             if self.foo:
@@ -558,11 +605,10 @@ class Sabre():
                 self.throughput_history.push(download_time, t, l)
 
             # loop while next_segment < len(manifest.segments)
-        # print('self.util.total_play_time in seconds', self.util.total_play_time)
-        # print('Buffer level:', self.util.get_buffer_level())
         
         result = self.createMetrics()
         result['status'] = 'downloadedSegment'
+        result['download_time'] = download_time
         return result
     
     def createMetrics(self):
@@ -609,32 +655,28 @@ class Sabre():
                 trace = network_trace[i]
                 self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
                 i += 1
-                if i == networkLen: i = 0
+                if i == networkLen: i = 0   
 
-    network_trace = None
-    networkLen = None
-    testNetworkIndex = 0
-    def testingSegment(self, network='sabreEnv/sabre/data/network.json'):
+    def testNetworkTester():
         '''
-        Run segment by segment.
+        Testing if download time from testDownload is correct.
         '''
-        if self.network_trace == None:
-            self.network_trace = self.util.load_json(network)
-            self.networkLen = len(self.network_trace)
-            self.testNetworkIndex = 0
-            
-        while True:
-            result = self.downloadSegment()
-            if result['status'] == 'completed':
-                return result
-            elif result['status'] == 'downloadedSegment':
-                return result
-            else:
-                trace = self.network_trace[self.testNetworkIndex]
-                self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'], trace['latency_ms'])
-                self.testNetworkIndex += 1
-                if self.testNetworkIndex == self.networkLen: self.testNetworkIndex = 0
-            
+        NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency')
+        network_trace = NetworkPeriod(time=100,
+                                bandwidth=5000,
+                                latency=175)
+    
+        network_trace2 = NetworkPeriod(time=1,
+                                    bandwidth=5000,
+                                    latency=75)
+        trace = []
+        trace.append(network_trace2)
+        trace.append(network_trace)
+        trace.append(network_trace2)
+        trace.append(network_trace)
+    
+        time = sabre.network.testDownload(886360, trace)
+        print(time)
 
 if __name__ == '__main__':
     sabre = Sabre(verbose=False, abr='bolae', moving_average='ewma', replace='right')

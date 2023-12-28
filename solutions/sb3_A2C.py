@@ -7,29 +7,29 @@ from gymnasium.wrappers import FlattenObservation
 print('Setup environment')
 
 env_name = "gymsabre-v0"
-env = gym.make(env_name, gridSize=100*100, edgeServers=4, clients=10, saveData=False)
+env = gym.make(env_name, gridSize=100*100, serviceLocations=4, clients=10, saveData=False)
 env = FlattenObservation(env)
 
-# print('Start training')
+print('Start training')
 
-# model = A2C("MlpPolicy", env).learn(total_timesteps=300_000, progress_bar=True)
-# model.save("solutions/policies/a2c_gymsabre-v2")
+model = A2C("MlpPolicy", env).learn(total_timesteps=300_000, progress_bar=True)
+model.save("solutions/policies/a2c_gymsabre-v1_31")
 
 print('Finished training')
 
-print('Start using model')
+# print('Start using model')
 
-model = A2C.load('solutions/policies/a2c_gymsabre-v1', env=env) 
-vec_env = model.get_env()
-obs = vec_env.reset()
-for _ in range(1000):
-    action, _ = model.predict(obs, deterministic=True)
-    observation, reward, terminated, info = vec_env.step(action)
+# model = A2C.load('solutions/policies/a2c_gymsabre-v1_31', env=env) 
+# vec_env = model.get_env()
+# obs = vec_env.reset()
+# for _ in range(1000):
+#     action, _ = model.predict(obs, deterministic=True)
+#     observation, reward, terminated, info = vec_env.step(action)
 
-    if terminated:
-        observation = vec_env.reset()
+#     if terminated:
+#         observation = vec_env.reset()
 
-    print(reward)
-env.close()
+#     print(reward)
+# env.close()
 
-print('Finished using model')
+# print('Finished using model')
