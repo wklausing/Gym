@@ -19,7 +19,7 @@ class TestMainFunction(unittest.TestCase):
         Bandwidth should be split between the two clients.
         Expects only 1 edgeServer!
         '''
-        gymSabre = GymSabreEnv(clients=20, edgeServers=1)
+        gymSabre = GymSabreEnv(clients=20, serviceLocations=1)
         gymSabre.reset()
 
         totalCdnBandwidth = 0
@@ -36,7 +36,7 @@ class TestMainFunction(unittest.TestCase):
         '''
         Testing the static manifest switching. 
         '''
-        gymSabre = GymSabreEnv(clients=50, edgeServers=2)
+        gymSabre = GymSabreEnv(clients=50, serviceLocations=2)
         gymSabre.reset()
         gymSabre.edgeServers[0].soldContigent = 100
         gymSabre.edgeServers[1].soldContigent = 100
