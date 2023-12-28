@@ -20,7 +20,7 @@ gym.logger.set_level(50) # Define logger level. 20 = info, 30 = warn, 40 = error
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize=100*100, serviceLocations=4, clients=10, saveData=False, contentSteering=False):
+    def __init__(self, render_mode=None, gridSize=100*100, serviceLocations=4, clients=10, saveData=False, contentSteering=False, ttl=500):
         # Util
         self.util = Util()
         
@@ -34,7 +34,7 @@ class GymSabreEnv(gym.Env):
         self.gridSize = gridSize
 
         # CP-Agent variables
-        
+                
         # CDN variables
         self.serviceLocationCount = serviceLocations
         self.serviceLocations = np.ones(serviceLocations, dtype=int)
@@ -43,6 +43,8 @@ class GymSabreEnv(gym.Env):
         # Client variables
         self.clientCount = clients
         self.clientsLocations = np.ones(clients, dtype=int)
+        self.contentSteering = contentSteering
+        self.ttl = ttl
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -58,16 +60,22 @@ class GymSabreEnv(gym.Env):
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
         self.buyContingent = [100] * serviceLocations
-        self.manifest = clients * serviceLocations * [serviceLocations] * 2
+        self.manifest = serviceLocations * [serviceLocations]
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
 
     def _get_obs(self):
+        # Client who receices a manifest
+        clientManifest = None
+        for client in self.clients:
+            if client.alive and client.needsManifest:
+                clientManifest = client.location
+
         #clientsLocations
         for client in self.clients:
             id = client.id
             self.clientsLocations[id] = self.clients[id].location
 
-        return {'clientsLocations': self.clientsLocations, 'serviceLocations': self.serviceLocations
+        return {'client': clientManifest, 'clientsLocations': self.clientsLocations, 'serviceLocations': self.serviceLocations
                 , 'cdnPrices': self.cdnPrices, 'time': self.time
                 , 'money': self.money}
 
@@ -103,7 +111,7 @@ class GymSabreEnv(gym.Env):
         self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(c ,self.clientsLocations[c].item(), self.edgeServers, util=self.util))
+            self.clients.append(Client(c , self.clientsLocations[c].item(), self.edgeServers, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl))
 
         observation = self._get_obs()
         info = {}
@@ -130,7 +138,7 @@ class GymSabreEnv(gym.Env):
         if terminated:
             pass
         else:
-            # Buy contigent
+            # Buy contigent from CDNs
             buyContigent = action[:len(self.buyContingent)] 
             for i, edgeServer in enumerate(self.edgeServers):
                 if hasattr(buyContigent[i], 'item'): 
@@ -138,14 +146,16 @@ class GymSabreEnv(gym.Env):
                 else:
                     money = edgeServer.sellContigent(money, buyContigent[i])
             
-            # Create manifest and let client fetch content
-            manifest = action[len(self.buyContingent):] 
+            # Add manifest to client
+            manifest = action[len(self.buyContingent):]
             for i, client in enumerate(self.clients):
-                if client.alive:
-                    if not hasattr(client, 'manifest'):
-                        start = client.id*4
-                        m = manifest[start:4+start]
-                        client.setManifest(m)
+                if client.alive and client.needsManifest:
+                    client.setManifest(manifest)
+                    
+            allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
+            if allClientsHaveManifest:
+                # Let clients do their steps and receive rewards.
+                for i, client in enumerate(self.clients):
                     result = client.step(time)
                     if result['status'] == 'downloadedSegment' or result['status'] == 'completed':
                         reward += result['qoe']
@@ -156,14 +166,13 @@ class GymSabreEnv(gym.Env):
                     else:
                         gym.logger.info('Client %s could not fetch content from CND %s.' % (client.id, client.edgeServer.id))                 
 
-        time += 1
-        self.render()
-
-        self.time = np.array([time], dtype='int')
-        self.money = np.array([money], dtype='int')
+                time += 1
+            self.time = np.array([time], dtype='int')
+            self.money = np.array([money], dtype='int')
         
         observation = self._get_obs()
         info = self._get_info(reward)
+        self.render()
 
         return observation, reward, terminated, False, info
 

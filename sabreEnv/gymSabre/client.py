@@ -11,14 +11,16 @@ class Client():
     cdns is list of edge-servers.
     '''
 
-    def __init__(self, id, location, cdns, util):
+    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=500):
         self.util = util
-
         self.id = id
         self.alive = True
         self.location = location
         self.time = -1
         self.cdns = cdns
+        self.needsManifest = True
+        self.contentSteering = contentSteering
+        self.ttl = ttl
 
         # Sabre implementation
         self.sabre = Sabre(verbose=False)
@@ -38,20 +40,26 @@ class Client():
         self.idxManifest = 0
         self.edgeServer = self.cdns[self.manifest[self.idxManifest]]
         self.edgeServer.addClient(self)
+        self.needsManifest = False
 
     def step(self, time):
         '''
         Client will do its move. It will download a segment from the edge-server, or do nothing if there is a delay caused by Sabre.
         '''
-        # Delay
-        if self.time == time:
-            gym.logger.error('Client %s has already done its move for time %s.' % (self.id, time))
+        # Content steering: Deducting time from TTL 
+        if self.time != time and self.contentSteering:
+            self.ttl -= 1
+            if self.ttl == 0:
+                gym.logger.info('Client %s aks for new manifest.' % self.id)
+                self.needsManifest = True
+
+        if self.time == time: # Client already did its move
+            gym.logger.error('Client %s has delay at time %s.' % (self.id, time))
             result = {'status': 'delay', 'delay': self.delay}
-        elif self.delay > 0:
+        elif self.delay > 0: # Delay is set by Sabre
             self.delay -= 1
             result = {'status': 'delay', 'delay': self.delay}
-        else:
-            # Delay is over
+        else: # Delay is over
             self.time = time
 
             # Network conditions
@@ -67,12 +75,9 @@ class Client():
                 gym.logger.info('Not enough contingent for client %s at CDN %s.' % (self.id, self.edgeServer.id))
                 self._changeCDN()
                 self.sabre.network.remove_network_condition()
-
             result = self._fetch()
-        
-        # Save Data for later
-        
 
+        # Save Data for later
         self.buffData.append(self.buffDataStep)
         self.buffDataStep = {} # Reset
         if self.id == 0:
@@ -90,7 +95,8 @@ class Client():
             pass
 
         if metrics['status'] == 'completed' or metrics['status'] == 'downloadedSegment':
-            qoe = metrics['time_average_played_bitrate'] * self.weightBitrate - metrics['time_average_bitrate_change'] * self.weightBitrateChange - metrics['time_average_rebuffer_events'] * self.weightRebuffer
+            qoe = metrics['time_average_played_bitrate'] * self.weightBitrate - metrics['time_average_bitrate_change'] * \
+                self.weightBitrateChange - metrics['time_average_rebuffer_events'] * self.weightRebuffer
             result = {'status': metrics['status'], 'qoe': qoe}
         elif metrics['status'] == 'delay':
             metrics['delay'] = round(metrics['delay'] / 1000, 0)
