@@ -425,9 +425,10 @@ class Sabre():
         if self.next_segment == len(self.util.manifest.segments):
             self.util.playout_buffer()
             result = self.createMetrics()
+            result['download_time'] = 0
             result['status'] = 'completed'
             return result
-             
+            
         # Download first segment
         if self.firstSegment:
             quality = self.abr.get_first_quality()
@@ -442,14 +443,12 @@ class Sabre():
             t = download_metric.size / download_time # t represents throughput per ms
             l = download_metric.time_to_first_bit
             self.throughput_history.push(download_time, t, l)
-            self.util.total_play_time += download_metric.time # 5481.8
+            self.util.total_play_time += download_metric.time
             self.firstSegment = False
             self.next_segment = 1
             self.abandoned_to_quality = None
         else:
             # Download rest of segments
-            if self.next_segment == 70:
-                pass # 6482800 != 9404888
 
             # do we have space for a new segment on the buffer?
             if self.foo:
@@ -563,6 +562,7 @@ class Sabre():
         
         result = self.createMetrics()
         result['status'] = 'downloadedSegment'
+        result['download_time'] = download_time
         return result
     
     def createMetrics(self):

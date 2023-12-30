@@ -151,6 +151,7 @@ class GymSabreEnv(gym.Env):
             for i, client in enumerate(self.clients):
                 if client.alive and client.needsManifest:
                     client.setManifest(manifest)
+                    break
                     
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest:
@@ -182,13 +183,13 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=1, serviceLocations=4, saveData=True)
+    env = GymSabreEnv(render_mode="human", clients=10, serviceLocations=4, saveData=True, contentSteering=True)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
     for i in range(7_200):
         progress = round(i / 7200 * 100,0)
-        print('Progress:', progress, '/100')
+        #print('Progress:', progress, '/100')
 
         action = env.action_space.sample() # agent policy that uses the observation and info
         observation, reward, terminated, truncated, info = env.step(action)
