@@ -29,6 +29,7 @@ class NetworkModel:
         self.time_to_next = 0
         self.time_to_nextTEMP = 0
 
+    timeNetCondition = 0
     def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
@@ -39,6 +40,7 @@ class NetworkModel:
                                     latency=latency_ms)
         self.traces.append(network_trace)
         self.permanent = True
+        self.timeNetCondition += duration_ms
 
     def remove_network_condition(self):
         '''
@@ -639,3 +641,15 @@ class Sabre():
 if __name__ == '__main__':
     sabre = Sabre(verbose=False, abr='bolae', moving_average='ewma', replace='right')
     sabre.testing(network='sabreEnv/sabre/data/networkTest2.json')
+    
+    pass
+
+
+# 589870.9744000023 ms --> 589,87 s
+# 199 * 3s = 597s 
+
+# total_play_time = 597.3522720000001
+# total_play_time = 2739.8411599999986
+
+# 390s
+# 573s

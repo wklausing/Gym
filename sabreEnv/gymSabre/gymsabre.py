@@ -15,7 +15,9 @@ from sabreEnv.gymSabre.client import Client
 from sabreEnv.gymSabre.cdn import EdgeServer
 from sabreEnv.gymSabre.util import Util
 
-gym.logger.set_level(50) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
+import random
+
+gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -42,14 +44,13 @@ class GymSabreEnv(gym.Env):
 
         # Client variables
         self.clientCount = clients
-        self.clientsLocations = np.ones(clients, dtype=int)
         self.contentSteering = contentSteering
         self.ttl = ttl
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
             {
-                'client': gym.spaces.MultiDiscrete([gridSize]),
+                'client': gym.spaces.Discrete(gridSize+1, start=-1),
                 'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * clients),
                 'serviceLocations': gym.spaces.MultiDiscrete([gridSize] * serviceLocations),
                 'cdnPrices': spaces.Box(0, 10, shape=(serviceLocations,), dtype=float),
@@ -65,17 +66,24 @@ class GymSabreEnv(gym.Env):
 
     def _get_obs(self):
         # Client who receices a manifest
-        clientManifest = None
+        clientManifest = -1
         for client in self.clients:
             if client.alive and client.needsManifest:
                 clientManifest = client.location
 
-        #clientsLocations
+        # clientsLocations
+        clientsLocations = []
+        self.clientCount
         for client in self.clients:
-            id = client.id
-            self.clientsLocations[id] = self.clients[id].location
+            clientsLocations.append(client.location)
 
-        return {'client': clientManifest, 'clientsLocations': self.clientsLocations, 'serviceLocations': self.serviceLocations
+        # Fill clientsLocations with -1 so that observation space doesn't change
+        while len(clientsLocations) < self.clientCount:
+            clientsLocations.append(-1)
+
+        return {
+            'client': np.array(clientManifest), 
+            'clientsLocations': clientsLocations, 'serviceLocations': self.serviceLocations
                 , 'cdnPrices': self.cdnPrices, 'time': self.time
                 , 'money': self.money}
 
@@ -100,7 +108,7 @@ class GymSabreEnv(gym.Env):
         # Reset CP-Agent
         self.money = np.array([100], dtype='int')
 
-        # Reset edge servers
+        # Reset CDN servers
         self.serviceLocations = self.np_random.integers(0, self.gridSize, size=self.serviceLocationCount, dtype=int)
         self.cdnPrices = np.round(np.random.uniform(0.5, 2, size=self.serviceLocationCount), 2)
         self.edgeServers = []
@@ -108,10 +116,9 @@ class GymSabreEnv(gym.Env):
             self.edgeServers.append(EdgeServer(self.util, e, self.serviceLocations[e].item(), self.cdnFilename, self.cdnPrices[e]))
 
         # Reset clients
-        self.clientsLocations = self.np_random.integers(0, self.gridSize, size=self.clientCount, dtype=int)
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(c , self.clientsLocations[c].item(), self.edgeServers, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl))
+            self.clients.append(Client(c , random.randint(0, self.gridSize), self.edgeServers, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl))
 
         observation = self._get_obs()
         info = {}
@@ -125,17 +132,36 @@ class GymSabreEnv(gym.Env):
 
         # An episode is done when the CP is out of money or time is over
         allClientsDone = all(not client.alive for client in self.clients)
-        terminated = money <= 0 or time >= 7_200 or allClientsDone
-
-        # Saving data
-        if self.saveData:
-            for client in self.clients:
-                if client.alive == False or terminated:
-                    client.saveData(finalStep=terminated)
-            for edgeServer in self.edgeServers:
-                edgeServer.saveData(time, finalStep=terminated)
+        if allClientsDone:
+            print('All clients done.')
+        elif money <= -1_000_000:
+            print('Money is below -1_000_000.')
+        elif time >= 7_200:
+            print('Time is over.')
+        terminated = money <= -1_000_000 or time >= 7_200 or allClientsDone
 
         if terminated:
+            pass
+
+        for client in self.clients:
+           if not client.alive:
+               pass
+
+        # Saving data
+        clients_to_remove = []
+        for client in self.clients:
+            if not client.alive or terminated:
+                client.saveData(finalStep=self.saveData)
+                clients_to_remove.append(client)
+        for edgeServer in self.edgeServers:
+            edgeServer.saveData(time, finalStep=terminated)
+
+        # Remove clients
+        for client in clients_to_remove:
+            self.clients.remove(client)
+
+        if terminated:
+            print('Time:', time)
             pass
         else:
             # Buy contigent from CDNs
@@ -155,7 +181,7 @@ class GymSabreEnv(gym.Env):
                     
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest:
-                # Let clients do their steps and receive rewards.
+                # Let clients do their steps and create rewards.
                 for i, client in enumerate(self.clients):
                     result = client.step(time)
                     if result['status'] == 'downloadedSegment' or result['status'] == 'completed':
@@ -163,7 +189,7 @@ class GymSabreEnv(gym.Env):
                     elif result['status'] == 'missingTrace':
                         gym.logger.info('Client %s was missing trace.' % client.id)
                     elif result['status'] == 'delay':
-                        gym.logger.info('Client has delay of.')
+                        gym.logger.info('Client %s has delay of %s.' % (client.id, result['delay']))
                     else:
                         gym.logger.info('Client %s could not fetch content from CND %s.' % (client.id, client.edgeServer.id))                 
 
@@ -183,7 +209,7 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=10, serviceLocations=4, saveData=True, contentSteering=True)
+    env = GymSabreEnv(render_mode="human", clients=1, serviceLocations=1, saveData=True, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
@@ -196,10 +222,11 @@ if __name__ == "__main__":
 
         if terminated or truncated:
             observation, info = env.reset()
+            quit()
 
-        if reward != 0: 
-            print('step:', i)
-            print(reward)
+        # if reward != 0: 
+        #     print('step:', i)
+        #     print(reward) 
 
     env.close()
     print('### Done ###')
