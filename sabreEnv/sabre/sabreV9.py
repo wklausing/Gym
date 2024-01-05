@@ -84,29 +84,7 @@ class NetworkModel:
         '''
         total_delay = 0
         while delay_units > 0:
-            current_latency = self.traces[self.indexTEMP].latency # 200
-            time = delay_units * current_latency
-            if time <= self.time_to_nextTEMP:
-                total_delay += time
-                self.network_total_timeTEMP += time
-                self.time_to_nextTEMP -= time
-                delay_units = 0
-            else:
-                total_delay += self.time_to_nextTEMP
-                self.network_total_timeTEMP += self.time_to_nextTEMP
-                delay_units -= self.time_to_nextTEMP / current_latency
-                self._next_network_period()
-                if self.permanent == False: return 0
-        return total_delay
-
-    def _do_latency_delay2(self, delay_units):
-        '''
-        Return delay time.
-        This needs to return false if new network trace is required.
-        '''
-        total_delay = 0
-        while delay_units > 0:
-            current_latency = self.traces[self.indexTEMP].latency # 200
+            current_latency = self.traces[self.indexTEMP].latency # 75
             time = delay_units * current_latency
             if time <= self.time_to_nextTEMP:
                 total_delay += time
@@ -146,40 +124,39 @@ class NetworkModel:
         '''
         Returns download time for given trace and size, without changing anything else.
         '''
+        index = 0
+        time_to_next = 0
+
         ### Latency
         delay_units = 1
         total_delay = 0
         while delay_units > 0:
-            current_latency = self.traces[self.indexTEMP].latency # 200
+            current_latency = trace[index].latency# 175
             time = delay_units * current_latency
-            if time <= self.time_to_nextTEMP:
+            if time <= time_to_next:
                 total_delay += time
-                self.network_total_timeTEMP += time
-                self.time_to_nextTEMP -= time
+                time_to_next -= time
                 delay_units = 0
             else:
-                total_delay += self.time_to_nextTEMP
-                self.network_total_timeTEMP += self.time_to_nextTEMP
-                delay_units -= self.time_to_nextTEMP / current_latency
-                self._next_network_period()
-                if self.permanent == False: return 0
-        #return total_delay
-
+                total_delay += time_to_next
+                delay_units -= time_to_next / current_latency# 2 --> 0.4285714285714286
+                index += 1
+                if index >= len(trace): return False
+                time_to_next = trace[index].time
+                
         ### Download
-
-        latency = sum([t.latency for t in trace]) / len(trace)
+        #latency = sum([t.latency for t in trace]) / len(trace)
         total_trace_time = sum([t.time for t in trace])
 
-        if total_trace_time > latency:
+        if total_trace_time > total_delay:# 132.14285714285714
             index = 0
-            time_to_next = 0
+            
             total_download_time = 0
             while size >= 0:
                 current_bandwidth = trace[index].bandwidth
                 if size <= time_to_next * current_bandwidth:
                     time = size / current_bandwidth
                     total_download_time += time
-                    self.network_total_timeTEMP += time
                     time_to_next -= time
                     break
                 else:
@@ -188,7 +165,7 @@ class NetworkModel:
                     index += 1
                     if index >= len(trace): return False
                     time_to_next = trace[index].time
-            return total_download_time + latency
+            return total_download_time + total_delay
         return False
 
     def _do_minimal_latency_delay(self, delay_units, min_time):
@@ -719,25 +696,17 @@ if __name__ == '__main__':
     
     network_trace = NetworkPeriod(time=100,
                                 bandwidth=5000,
+                                latency=175)
+    
+    network_trace2 = NetworkPeriod(time=100,
+                                bandwidth=5000,
                                 latency=75)
     
     trace = []
+    trace.append(network_trace2)
     trace.append(network_trace)
-    trace.append(network_trace)
-    trace.append(network_trace)
+    trace.append(network_trace2)
     trace.append(network_trace)
     
-    time = sabre.network._do_download2(886360, trace) + 75
-    print(time) # 252.272
-    
-    pass
-
-
-# 589870.9744000023 ms --> 589,87 s
-# 199 * 3s = 597s 
-
-# total_play_time = 597.3522720000001
-# total_play_time = 2739.8411599999986
-
-# 390s
-# 573s
+    time = sabre.network._do_download2(886360, trace)
+    print(time) # 309.41485714285716
