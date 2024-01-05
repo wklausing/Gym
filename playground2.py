@@ -18,7 +18,7 @@ class DynamicMap:
         # Additional plot settings
         self.ax.set_xlim(0, 1)
         self.ax.set_ylim(0, 1)
-        self.ax.set_title('Dynamic Map of Clients and Servers')
+        self.ax.set_title('GymSabre Map')
         self.ax.set_xlabel('X Coordinate')
         self.ax.set_ylabel('Y Coordinate')
         self.ax.legend()

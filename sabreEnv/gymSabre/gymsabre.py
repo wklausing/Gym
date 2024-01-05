@@ -100,6 +100,7 @@ class GymSabreEnv(gym.Env):
         self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
         self.data = []
         self.util.episodeCounter += 1
+        self.stepCounter = 0
         
         # Reset env variables
         self.sumReward = 0
@@ -126,6 +127,11 @@ class GymSabreEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        '''
+        Here the step from CP agent is done, but also from CDN and clients.
+        '''
+        self.stepCounter += 1
+
         time = self.time.item()
         money = self.money.item()
         reward = 0
@@ -138,7 +144,7 @@ class GymSabreEnv(gym.Env):
             print('Money is below -1_000_000.')
         elif time >= 7_200:
             print('Time is over.')
-        terminated = money <= -1_000_000 or time >= 7_200 or allClientsDone
+        terminated = money <= -1_000_000 or self.stepCounter >= 7_200 or allClientsDone
 
         if terminated:
             pass
@@ -161,7 +167,7 @@ class GymSabreEnv(gym.Env):
             self.clients.remove(client)
 
         if terminated:
-            print('Time:', time)
+            print('Termination time:', time)
             pass
         else:
             # Buy contigent from CDNs
@@ -171,6 +177,7 @@ class GymSabreEnv(gym.Env):
                     money = edgeServer.sellContigent(money, buyContigent[i].item())
                 else:
                     money = edgeServer.sellContigent(money, buyContigent[i])
+            self.money = np.array([money], dtype='int')
             
             # Add manifest to client
             manifest = action[len(self.buyContingent):]
@@ -181,21 +188,11 @@ class GymSabreEnv(gym.Env):
                     
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest:
-                # Let clients do their steps and create rewards.
-                for i, client in enumerate(self.clients):
-                    result = client.step(time)
-                    if result['status'] == 'downloadedSegment' or result['status'] == 'completed':
-                        reward += result['qoe']
-                    elif result['status'] == 'missingTrace':
-                        gym.logger.info('Client %s was missing trace.' % client.id)
-                    elif result['status'] == 'delay':
-                        gym.logger.info('Client %s has delay of %s.' % (client.id, result['delay']))
-                    else:
-                        gym.logger.info('Client %s could not fetch content from CND %s.' % (client.id, client.edgeServer.id))                 
-
+                for cdn in self.edgeServers:
+                    cdn.manageClients(time)
                 time += 1
+
             self.time = np.array([time], dtype='int')
-            self.money = np.array([money], dtype='int')
         
         observation = self._get_obs()
         info = self._get_info(reward)
@@ -209,7 +206,7 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=1, serviceLocations=1, saveData=True, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", clients=2, serviceLocations=2, saveData=True, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 

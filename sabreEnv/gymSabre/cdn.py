@@ -4,6 +4,8 @@ import numpy as np
 import os
 import csv
 
+import math
+
 class EdgeServer:
 
     def __init__(self, util, id, location, filename, price=1, bandwidth_kbps=1000):
@@ -51,6 +53,51 @@ class EdgeServer:
     def bandwidth(self):
         return self.bandwidth_kbps
     
+    clientsStatus = {}
+    def manageClients(self, time):
+        '''
+        Here clients will fetch content from CDN and return the result as a dictionary.
+        '''
+
+        # Check what is needed for clients to proceed
+        for client in self.clients:
+            if client.status == 'missingTrace':
+                # Client needs trace
+                size = client.metrics[-1]['size']
+            elif client.status == 'downloadedSegment':
+                pass
+            elif client.status == 'completed':
+                self.clientsRequiresTrace =- 1
+            elif client.status == 'delay':
+                self.clientsRequiresTrace =- 1
+
+        # Distribute bandwidth
+        clients = [client for client in self.clients if client.status == 'missingTrace']
+        for client in clients:
+            duration = self._calcDuration(time, client)
+            bandwidth = self.bandwidth_kbps / len(clients)
+            latency = self._determineLatency(self.location, client.location)
+            client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)    
+
+        # Let client do its move
+        for client in self.clients:
+            result = client.step(time)
+            self.clientsStatus[client.id] = result
+
+
+    def _calcDuration(self, time, client):
+        return 1000
+
+    def _determineLatency(self, position1, position2):
+        '''
+        Calculates distance between two points. Used to calcualte latency.
+        '''
+        position1 = position1 % 100, position1 // 100
+        position2 = position2 % 100, position2 // 100
+        distance = round(math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2), 2) # Euklidean distance
+        distance = round(distance * 5, 2)
+        return distance
+
     def saveData(self, time, finalStep=False):
         if time == 0: return
 

@@ -438,7 +438,7 @@ class Sabre():
             self.sizeTEMP = size
 
             download_metric = self.network.downloadNet(size, 0, quality, 0, None)
-            if download_metric == False: return {'status': 'missingTrace'}
+            if download_metric == False: return {'status': 'missingTrace', 'size': size}
 
             download_time = download_metric.time - download_metric.time_to_first_bit
             self.util.buffer_contents.append(download_metric.quality)
@@ -510,7 +510,7 @@ class Sabre():
                                             self.util.get_buffer_level(), check_abandon)
             if download_metric == False: 
                 self.foo = False
-                return {'status': 'missingTrace'}
+                return {'status': 'missingTrace', 'size': size}
 
             self.util.deplete_buffer(download_metric.time)
 
@@ -566,6 +566,9 @@ class Sabre():
         result['status'] = 'downloadedSegment'
         result['download_time'] = download_time
         return result
+    
+    #1971.1792
+    #2548.9872
     
     def createMetrics(self):
         to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
