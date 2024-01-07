@@ -61,31 +61,21 @@ class EdgeServer:
 
         # Check what is needed for clients to proceed
         for client in self.clients:
-            if client.status == 'missingTrace':
+            if client.status in ['missingTrace', 'downloadedSegment']:
                 pass
-            elif client.status == 'downloadedSegment':
-                pass
-            elif client.status == 'completed':
+            elif client.status in ['completed', 'delay']:
                 self.clientsRequiresTrace =- 1
-            elif client.status == 'delay':
-                self.clientsRequiresTrace =- 1
+            else:
+                gym.logger.warn('Unknown status %s for client %s.' % (client.status, client.id))
+                quit()
 
         # Distribute bandwidth
-        clients = [client for client in self.clients if client.status == 'missingTrace']
+        clients = [client for client in self.clients if client.status in ['missingTrace', 'downloadedSegment']]
         for client in clients:
-            duration = self._calcDuration(time, client)
+            duration = 1000
             bandwidth = self.bandwidth_kbps / len(clients)
             latency = self._determineLatency(self.location, client.location)
-            client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)    
-
-        # Let client do its move
-        for client in self.clients:
-            result = client.step(time)
-            self.clientsStatus[client.id] = result
-
-
-    def _calcDuration(self, time, client):
-        return 1000
+            client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)
 
     def _determineLatency(self, position1, position2):
         '''
@@ -98,7 +88,7 @@ class EdgeServer:
         return distance
 
     def saveData(self, time, finalStep=False):
-        if time == 0: return
+        if time == 0 or self.saveData: return
 
         client_ids = [client.id for client in self.clients]
         self.buffered_data.append([self.util.episodeCounter, time, self.id, np.array(client_ids), self.bandwidth_kbps, self.currentBandwidth, self.contigent, self.money])

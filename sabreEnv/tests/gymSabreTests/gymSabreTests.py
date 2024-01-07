@@ -19,11 +19,11 @@ class TestMainFunction(unittest.TestCase):
         Bandwidth should be split between the two clients.
         Expects only 1 edgeServer!
         '''
-        gymSabre = GymSabreEnv(clients=20, serviceLocations=1)
+        gymSabre = GymSabreEnv(clients=20, cdnLocations=1)
         gymSabre.reset()
 
         totalCdnBandwidth = 0
-        for cdn in gymSabre.edgeServers:
+        for cdn in gymSabre.cdns:
             totalCdnBandwidth += cdn.bandwidth
 
         totalClientBandwidth = 0
@@ -36,10 +36,10 @@ class TestMainFunction(unittest.TestCase):
         '''
         Testing the static manifest switching. 
         '''
-        gymSabre = GymSabreEnv(clients=50, serviceLocations=2)
+        gymSabre = GymSabreEnv(clients=50, cdnLocations=2)
         gymSabre.reset()
-        gymSabre.edgeServers[0].soldContigent = 100
-        gymSabre.edgeServers[1].soldContigent = 100
+        gymSabre.cdns[0].soldContigent = 100
+        gymSabre.cdns[1].soldContigent = 100
 
         env = GymSabreEnv()
         observation, info = env.reset()
@@ -47,10 +47,10 @@ class TestMainFunction(unittest.TestCase):
         for _ in range(1000):
             action = env.action_space.sample()  # agent policy that uses the observation and info
             observation, reward, terminated, truncated, info = env.step(action)
-            if terminated or truncated or gymSabre.edgeServers[0].soldContigent == 0 or gymSabre.edgeServers[1].soldContigent == 0:
+            if terminated or truncated or gymSabre.cdns[0].soldContigent == 0 or gymSabre.cdns[1].soldContigent == 0:
                 break
         env.close()
-        self.assertEqual(gymSabre.edgeServers[0].soldContigent, gymSabre.edgeServers[1].soldContigent)
+        self.assertEqual(gymSabre.cdns[0].soldContigent, gymSabre.cdns[1].soldContigent)
                          
 
 if __name__ == '__main__':

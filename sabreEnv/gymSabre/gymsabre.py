@@ -22,7 +22,7 @@ gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize=100*100, serviceLocations=4, clients=10, saveData=False, contentSteering=False, ttl=500):
+    def __init__(self, render_mode=None, gridSize=100*100, cdnLocations=4, clients=10, saveData=False, contentSteering=False, ttl=500):
         # Util
         self.util = Util()
         
@@ -38,9 +38,9 @@ class GymSabreEnv(gym.Env):
         # CP-Agent variables
                 
         # CDN variables
-        self.serviceLocationCount = serviceLocations
-        self.serviceLocations = np.ones(serviceLocations, dtype=int)
-        self.cdnPrices = np.ones(serviceLocations, dtype=int)
+        self.cdnCount = cdnLocations
+        self.cdnLocations = np.ones(cdnLocations, dtype=int)
+        self.cdnPrices = np.ones(cdnLocations, dtype=int)
 
         # Client variables
         self.clientCount = clients
@@ -52,16 +52,16 @@ class GymSabreEnv(gym.Env):
             {
                 'client': gym.spaces.Discrete(gridSize+1, start=-1),
                 'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * clients),
-                'serviceLocations': gym.spaces.MultiDiscrete([gridSize] * serviceLocations),
-                'cdnPrices': spaces.Box(0, 10, shape=(serviceLocations,), dtype=float),
+                'cdnLocations': gym.spaces.MultiDiscrete([gridSize] * cdnLocations),
+                'cdnPrices': spaces.Box(0, 10, shape=(cdnLocations,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
                 'money': spaces.Box(0, 100_000, shape=(1,), dtype=int),
             }
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        self.buyContingent = [100] * serviceLocations
-        self.manifest = serviceLocations * [serviceLocations]
+        self.buyContingent = [100] * cdnLocations
+        self.manifest = cdnLocations * [cdnLocations]
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
 
     def _get_obs(self):
@@ -83,7 +83,7 @@ class GymSabreEnv(gym.Env):
 
         return {
             'client': np.array(clientManifest), 
-            'clientsLocations': clientsLocations, 'serviceLocations': self.serviceLocations
+            'clientsLocations': clientsLocations, 'serviceLocations': self.cdnLocations
                 , 'cdnPrices': self.cdnPrices, 'time': self.time
                 , 'money': self.money}
 
@@ -110,16 +110,16 @@ class GymSabreEnv(gym.Env):
         self.money = np.array([100], dtype='int')
 
         # Reset CDN servers
-        self.serviceLocations = self.np_random.integers(0, self.gridSize, size=self.serviceLocationCount, dtype=int)
-        self.cdnPrices = np.round(np.random.uniform(0.5, 2, size=self.serviceLocationCount), 2)
-        self.edgeServers = []
-        for e in range(self.serviceLocationCount):
-            self.edgeServers.append(EdgeServer(self.util, e, self.serviceLocations[e].item(), self.cdnFilename, self.cdnPrices[e]))
+        self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
+        self.cdnPrices = np.round(np.random.uniform(0.5, 2, size=self.cdnCount), 2)
+        self.cdns = []
+        for e in range(self.cdnCount):
+            self.cdns.append(EdgeServer(self.util, e, self.cdnLocations[e].item(), self.cdnFilename, self.cdnPrices[e]))
 
         # Reset clients
         self.clients = []
         for c in range(self.clientCount):
-            self.clients.append(Client(c , random.randint(0, self.gridSize), self.edgeServers, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl))
+            self.clients.append(Client(c , random.randint(0, self.gridSize), self.cdns, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl))
 
         observation = self._get_obs()
         info = {}
@@ -152,8 +152,8 @@ class GymSabreEnv(gym.Env):
             if not client.alive or terminated:
                 client.saveData(finalStep=self.saveData)
                 clients_to_remove.append(client)
-        for edgeServer in self.edgeServers:
-            edgeServer.saveData(time, finalStep=terminated)
+        for cdn in self.cdns:
+            cdn.saveData(time, finalStep=terminated)
 
         # Remove clients
         for client in clients_to_remove:
@@ -165,26 +165,30 @@ class GymSabreEnv(gym.Env):
         else:
             # Buy contigent from CDNs
             buyContigent = action[:len(self.buyContingent)] 
-            for i, edgeServer in enumerate(self.edgeServers):
+            for i, cdn in enumerate(self.cdns):
                 if hasattr(buyContigent[i], 'item'): 
-                    money = edgeServer.sellContigent(money, buyContigent[i].item())
+                    money = cdn.sellContigent(money, buyContigent[i].item())
                 else:
-                    money = edgeServer.sellContigent(money, buyContigent[i])
+                    money = cdn.sellContigent(money, buyContigent[i])
             self.money = np.array([money], dtype='int')
 
             # Add manifest to client
             manifest = action[len(self.buyContingent):]
             for i, client in enumerate(self.clients):
                 if client.alive and client.needsManifest:
-                    client.setManifest(manifest)
+                    client.setManifest(manifest.tolist())
                     break
             
             # Manage clients
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest:
-                for cdn in self.edgeServers:
+                for cdn in self.cdns:
                     cdn.manageClients(time)
                 time += 1
+
+            # Let client do its move
+            for client in self.clients:
+                client.step(time)
 
             self.time = np.array([time], dtype='int')
         
@@ -200,7 +204,7 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=20, serviceLocations=2, saveData=True, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", clients=20, cdnLocations=2, saveData=False, contentSteering=True)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
