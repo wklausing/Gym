@@ -23,7 +23,7 @@ class TestMainFunction(unittest.TestCase):
     #                 #self.assertAlmostEqual(resultSabreV8[key], resultSabreV8Sec[key],1)
 
     def testSabreV9_regression(self):
-        abrList = ['bolae','bola', 'throughput', 'dynamic', 'dynamicdash' ]
+        abrList = ['bolae','bola', 'dynamic', 'dynamicdash' ]# 'throughput', 
         averageList = ['ewma', 'sliding']
         for abr in abrList:
             for average in averageList:

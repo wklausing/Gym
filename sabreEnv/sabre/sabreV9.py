@@ -24,12 +24,11 @@ class NetworkModel:
         self.util.sustainable_quality = None
         self.util.network_total_time = 0
         self.traces = []
-        self.index = -1
-        self.indexTEMP = -1
+        self.networkIndex = -1
+        self.networkIndexTEMP = -1
         self.time_to_next = 0
         self.time_to_nextTEMP = 0
 
-    timeNetCondition = 0
     def add_network_condition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
@@ -40,30 +39,29 @@ class NetworkModel:
                                     latency=latency_ms)
         self.traces.append(network_trace)
         self.permanent = True
-        self.timeNetCondition += duration_ms
 
     def remove_network_condition(self):
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
         '''
         self.traces = []
-        self.index = 0
+        self.networkIndex = 0
         self.permanent = False
 
     def _next_network_period(self):
         '''
         Changes network conditions, according to self.trace
         '''
-        self.indexTEMP += 1
-        if self.indexTEMP >= len(self.traces):
+        self.networkIndexTEMP += 1
+        if self.networkIndexTEMP >= len(self.traces):
             self.permanent = False
-            self.indexTEMP -= 1
+            self.networkIndexTEMP -= 1
             return False
-        self.time_to_nextTEMP = self.traces[self.indexTEMP].time
+        self.time_to_nextTEMP = self.traces[self.networkIndexTEMP].time
 
         latency_factor = 1 - \
-            self.traces[self.indexTEMP].latency / self.util.manifest.segment_time
-        effective_bandwidth = self.traces[self.indexTEMP].bandwidth * latency_factor
+            self.traces[self.networkIndexTEMP].latency / self.util.manifest.segment_time
+        effective_bandwidth = self.traces[self.networkIndexTEMP].bandwidth * latency_factor
 
         previous_sustainable_quality = self.util.sustainable_quality
         self.util.sustainable_quality = 0
@@ -84,7 +82,7 @@ class NetworkModel:
         '''
         total_delay = 0
         while delay_units > 0:
-            current_latency = self.traces[self.indexTEMP].latency # 75
+            current_latency = self.traces[self.networkIndexTEMP].latency # 200
             time = delay_units * current_latency
             if time <= self.time_to_nextTEMP:
                 total_delay += time
@@ -105,7 +103,7 @@ class NetworkModel:
         '''
         total_download_time = 0
         while size >= 0:
-            current_bandwidth = self.traces[self.indexTEMP].bandwidth
+            current_bandwidth = self.traces[self.networkIndexTEMP].bandwidth
             if size <= self.time_to_nextTEMP * current_bandwidth:
                 time = size / current_bandwidth
                 total_download_time += time
@@ -122,10 +120,14 @@ class NetworkModel:
         
     def testDownload(self, size, trace):
         '''
-        Test if download is possible for given size and trace .
+        Test if download is possible for given size and trace.
         '''
-        index = 0
-        time_to_next = 0
+        index = self.networkIndexTEMP
+        time_to_next = self.time_to_nextTEMP
+        trace = self.traces
+
+        if trace == []: 
+            return False
 
         ### Latency
         delay_units = 1
@@ -141,7 +143,8 @@ class NetworkModel:
                 total_delay += time_to_next
                 delay_units -= time_to_next / current_latency
                 index += 1
-                if index >= len(trace): return False
+                if index >= len(trace): 
+                    return False
                 time_to_next = trace[index].time
                 
         ### Download
@@ -171,7 +174,7 @@ class NetworkModel:
         total_delay_units = 0
         total_delay_time = 0
         while delay_units > 0 and min_time > 0:
-            current_latency = self.traces[self.indexTEMP].latency
+            current_latency = self.traces[self.networkIndexTEMP].latency
             time = delay_units * current_latency
             if time <= min_time and time <= self.time_to_nextTEMP:
                 units = delay_units
@@ -200,7 +203,7 @@ class NetworkModel:
         total_size = 0
         total_time = 0
         while size > 0 and (min_size > 0 or min_time > 0):
-            current_bandwidth = self.traces[self.indexTEMP].bandwidth
+            current_bandwidth = self.traces[self.networkIndexTEMP].bandwidth
             if current_bandwidth > 0:
                 min_bits = max(min_size, min_time * current_bandwidth)
                 bits_to_next = self.time_to_nextTEMP * current_bandwidth
@@ -273,7 +276,7 @@ class NetworkModel:
         downloadProgress = False # Assuming not enough trace 
         self.network_total_timeTEMP = self.util.network_total_time
         self.time_to_nextTEMP = self.time_to_next
-        self.indexTEMP = self.index
+        self.networkIndexTEMP = self.networkIndex
 
         if size <= 0:# If size is not positive, than return 
             downloadProgress = self.DownloadProgress(index=idx, quality=quality,
@@ -283,10 +286,10 @@ class NetworkModel:
         elif not check_abandon or (NetworkModel.min_progress_time <= 0 and
                                  NetworkModel.min_progress_size <= 0):
             
-            latency = self._do_latency_delay(1) # 100
+            latency = self._do_latency_delay(1)
             if self.permanent == False: return False
 
-            time = latency + self._do_download(size)# 5481.8
+            time = latency + self._do_download(size)
             if self.permanent == False: return False
             
             downloadProgress = self.DownloadProgress(index=idx, quality=quality,
@@ -354,7 +357,7 @@ class NetworkModel:
         if self.permanent:
             self.util.network_total_time = self.network_total_timeTEMP
             self.time_to_next = self.time_to_nextTEMP
-            self.index = self.indexTEMP
+            self.networkIndex = self.networkIndexTEMP
             return downloadProgress
         else:
             return False        
@@ -648,9 +651,13 @@ class Sabre():
         networkLen = len(network_trace)
         i = 0
         while True:
+            print('segment:', self.next_segment)
             result = self.downloadSegment()
+
             if result['status'] == 'completed':
                 return result
+            elif result['status'] == 'downloadedSegment' or result['status'] == 'delay':
+                pass
             else:
                 trace = network_trace[i]
                 self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
@@ -679,5 +686,5 @@ class Sabre():
         print(time)
 
 if __name__ == '__main__':
-    sabre = Sabre(verbose=False, abr='bolae', moving_average='ewma', replace='right')
+    sabre = Sabre(verbose=False, abr='bolae', moving_average='sliding', replace='right')
     sabre.testing(network='sabreEnv/sabre/data/networkTest2.json')

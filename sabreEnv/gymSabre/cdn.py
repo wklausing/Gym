@@ -62,8 +62,7 @@ class EdgeServer:
         # Check what is needed for clients to proceed
         for client in self.clients:
             if client.status == 'missingTrace':
-                # Client needs trace
-                size = client.metrics[-1]['size']
+                pass
             elif client.status == 'downloadedSegment':
                 pass
             elif client.status == 'completed':

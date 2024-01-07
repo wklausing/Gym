@@ -142,16 +142,9 @@ class GymSabreEnv(gym.Env):
             print('All clients done.')
         elif money <= -1_000_000:
             print('Money is below -1_000_000.')
-        elif time >= 7_200:
-            print('Time is over.')
+        elif self.stepCounter >= 7_200:
+            print('Maximal step is reached.')
         terminated = money <= -1_000_000 or self.stepCounter >= 7_200 or allClientsDone
-
-        if terminated:
-            pass
-
-        for client in self.clients:
-           if not client.alive:
-               pass
 
         # Saving data
         clients_to_remove = []
@@ -178,14 +171,15 @@ class GymSabreEnv(gym.Env):
                 else:
                     money = edgeServer.sellContigent(money, buyContigent[i])
             self.money = np.array([money], dtype='int')
-            
+
             # Add manifest to client
             manifest = action[len(self.buyContingent):]
             for i, client in enumerate(self.clients):
                 if client.alive and client.needsManifest:
                     client.setManifest(manifest)
                     break
-                    
+            
+            # Manage clients
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest:
                 for cdn in self.edgeServers:
@@ -206,7 +200,7 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=2, serviceLocations=2, saveData=True, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", clients=20, serviceLocations=2, saveData=True, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
@@ -214,16 +208,12 @@ if __name__ == "__main__":
         progress = round(i / 7200 * 100,0)
         #print('Progress:', progress, '/100')
 
-        action = env.action_space.sample() # agent policy that uses the observation and info
+        action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
             observation, info = env.reset()
             quit()
-
-        # if reward != 0: 
-        #     print('step:', i)
-        #     print(reward) 
 
     env.close()
     print('### Done ###')
