@@ -92,7 +92,7 @@ class GymSabreEnv(gym.Env):
         return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward}
 
     def reset(self, seed=None, options=None):
-
+        
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
@@ -127,9 +127,7 @@ class GymSabreEnv(gym.Env):
         return observation, info
 
     def step(self, action):
-        '''
-        Here the step from CP agent is done, but also from CDN and clients.
-        '''
+        
         self.stepCounter += 1
 
         time = self.time.item()
@@ -188,7 +186,9 @@ class GymSabreEnv(gym.Env):
 
             # Let client do its move
             for client in self.clients:
-                client.step(time)
+                clientMetrics = client.step(time)
+                reward += clientMetrics['qoe']
+                pass
 
             self.time = np.array([time], dtype='int')
         
@@ -204,11 +204,11 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=20, cdnLocations=2, saveData=False, contentSteering=True)
+    env = GymSabreEnv(render_mode="human", clients=10, cdnLocations=2, saveData=False, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
-    for i in range(7_200):
+    for i in range(7200):
         progress = round(i / 7200 * 100,0)
         #print('Progress:', progress, '/100')
 
@@ -217,7 +217,13 @@ if __name__ == "__main__":
 
         if terminated or truncated:
             observation, info = env.reset()
-            quit()
+            pass
 
     env.close()
     print('### Done ###')
+    print(f'Episode total rewards: {env.return_queue}')
+    print(f'Episode lengths: {env.length_queue}')
+    print(f'Episode count: {env.episode_count}')
+    print(f'Episode start time: {env.episode_start_times}')
+    print(f'Episode returns: {env.episode_returns}')
+    print(f'Episode lengths: {env.episode_lengths}')
