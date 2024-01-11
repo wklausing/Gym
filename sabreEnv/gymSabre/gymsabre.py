@@ -20,7 +20,8 @@ gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize=100*100, cdnLocations=4, maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, ttl=500):
+    def __init__(self, render_mode=None, gridSize=100*100, cdnLocations=4, \
+                 maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, ttl=500):
         # Util
         self.util = Util()
         
@@ -42,7 +43,7 @@ class GymSabreEnv(gym.Env):
 
         # Client variables
         self.maxActiveClients = maxActiveClients
-        self.totalClients = totalClients
+        self.totalClients = self.totalClientsReset = totalClients
         self.contentSteering = contentSteering
         self.ttl = ttl
 
@@ -88,7 +89,8 @@ class GymSabreEnv(gym.Env):
 
     def _get_info(self, reward):
         self.sumReward += reward
-        return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward}
+        return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward, \
+                'activeClients': self.clients, 'cdnLocations': self.cdnLocations, 'cdnPrices': self.cdnPrices}
 
     def reset(self, seed=None, options=None):
         
@@ -118,6 +120,7 @@ class GymSabreEnv(gym.Env):
         # Reset clients
         self.clients = []
         self.clientIDs = 0
+        self.totalClients = self.totalClientsReset
 
         observation = self._get_obs()
         info = {}
@@ -154,7 +157,7 @@ class GymSabreEnv(gym.Env):
         self.clientAdder(time)
 
         # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
-        allClientsDone = all(not client.alive for client in self.clients)
+        allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
         if allClientsDone:
             print('All clients done.')
         elif money <= -1_000_000:
@@ -223,13 +226,14 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", maxActiveClients=1, cdnLocations=2, saveData=False, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, cdnLocations=2, saveData=True, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
-    for i in range(1000):
-        # progress = round(i / 7200 * 100,0)
-        # print('Progress:', progress, '/100')
+    steps = 100_000
+    for i in range(steps):
+        progress = round(i / steps * 100,0)
+        print('Progress:', progress, '/100')
 
         action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)
@@ -237,6 +241,9 @@ if __name__ == "__main__":
         if terminated or truncated:
             observation, info = env.reset()
             pass
+
+        if i == steps-1:
+            print('All steps done.')
 
     env.close()
     print('### Done ###')

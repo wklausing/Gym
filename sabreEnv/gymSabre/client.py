@@ -18,7 +18,7 @@ class Client():
         self.needsManifest = True
         self.csActive = contentSteering
         self.ttl = ttl
-        self.qoeMetric = 'bitrate'
+        self.qoeMeasure = 'bitrate'
         self.manifest = []
 
         self.network_conditions = deque()
@@ -93,7 +93,7 @@ class Client():
         self.status = metrics['status']
         
         # Check if client wants to change CDN
-        if self.average_bandwidth != None: self._evaluateAndSwitchServer()
+        if self.average_bandwidth != None and self.alive: self._evaluateAndSwitchServer()
 
         # Save data for later
         stepInfos = {
@@ -125,7 +125,7 @@ class Client():
         '''
         Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
         '''
-        if self.qoeMetric == 'bitrate' or True:
+        if self.qoeMeasure == 'bitrate':
             qoe = metrics['time_average_played_bitrate'] - metrics['time_average_bitrate_change'] * \
                 - metrics['time_average_rebuffer_events']
         return qoe
@@ -168,8 +168,8 @@ class Client():
         self.cdn.removeClient(self)
 
     def saveData(self, finalStep=False):
-        if self.time == -1 or self.saveData:
-            return
+        if self.time == -1:
+            pass
         elif finalStep:
             print('SaveData for client %s.' % self.id)
             self.util.clientCsvExport(self.metrics)
