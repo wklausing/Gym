@@ -15,14 +15,12 @@ from sabreEnv.gymSabre.client import Client
 from sabreEnv.gymSabre.cdn import EdgeServer
 from sabreEnv.gymSabre.util import Util
 
-import random
-
 gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize=100*100, cdnLocations=4, clients=10, saveData=False, contentSteering=False, ttl=500):
+    def __init__(self, render_mode=None, gridSize=100*100, cdnLocations=4, maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, ttl=500):
         # Util
         self.util = Util()
         
@@ -43,7 +41,8 @@ class GymSabreEnv(gym.Env):
         self.cdnPrices = np.ones(cdnLocations, dtype=int)
 
         # Client variables
-        self.clientCount = clients
+        self.maxActiveClients = maxActiveClients
+        self.totalClients = totalClients
         self.contentSteering = contentSteering
         self.ttl = ttl
 
@@ -51,7 +50,7 @@ class GymSabreEnv(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 'client': gym.spaces.Discrete(gridSize+1, start=-1),
-                'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * clients),
+                'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * maxActiveClients),
                 'cdnLocations': gym.spaces.MultiDiscrete([gridSize] * cdnLocations),
                 'cdnPrices': spaces.Box(0, 10, shape=(cdnLocations,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
@@ -73,12 +72,12 @@ class GymSabreEnv(gym.Env):
 
         # clientsLocations
         clientsLocations = []
-        self.clientCount
+        self.maxActiveClients
         for client in self.clients:
             clientsLocations.append(client.location)
 
         # Fill clientsLocations with -1 so that observation space doesn't change
-        while len(clientsLocations) < self.clientCount:
+        while len(clientsLocations) < self.maxActiveClients:
             clientsLocations.append(-1)
 
         return {
@@ -118,23 +117,43 @@ class GymSabreEnv(gym.Env):
 
         # Reset clients
         self.clients = []
-        for c in range(self.clientCount):
-            self.clients.append(Client(c , random.randint(0, self.gridSize), self.cdns, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl))
+        self.clientIDs = 0
 
         observation = self._get_obs()
         info = {}
         
         return observation, info
+    
+    def clientAdder(self, time):
+        '''
+        Here the appearing of clients is managed. 
+        '''
+        self.oldTime = time
+        if self.totalClients <= 0:
+            pass
+        elif len(self.clients) >= self.maxActiveClients:
+            pass
+        elif len(self.clients) < 10:
+            if self.np_random.integers(1, 10) > 3 or len(self.clients) <= 0:
+                c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl)
+                self.clientIDs += 1
+                self.totalClients -= 1
+                self.clients.append(c)
+        else:
+            pass
+        pass
 
     def step(self, action):
-        
         self.stepCounter += 1
 
         time = self.time.item()
         money = self.money.item()
         reward = 0
 
-        # An episode is done when the CP is out of money or time is over
+        # Add clients
+        self.clientAdder(time)
+
+        # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
         allClientsDone = all(not client.alive for client in self.clients)
         if allClientsDone:
             print('All clients done.')
@@ -204,13 +223,13 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", clients=10, cdnLocations=2, saveData=False, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=1, cdnLocations=2, saveData=False, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
-    for i in range(7200):
-        progress = round(i / 7200 * 100,0)
-        #print('Progress:', progress, '/100')
+    for i in range(1000):
+        # progress = round(i / 7200 * 100,0)
+        # print('Progress:', progress, '/100')
 
         action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)

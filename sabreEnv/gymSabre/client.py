@@ -55,6 +55,9 @@ class Client():
         self.sabre.network.add_network_condition(duration_ms=duration_ms, bandwidth_kbps=bandwidth_kbps, latency_ms=latency_ms)
 
     def updateNetworkAverages(self, duration_ms, bandwidth_kbps, latency_ms):
+        '''
+        Network conditions is the reason for a client to change CDN. Therefore, the average of the last 10 network conditions is calculated.
+        '''
         self.network_conditions.append((duration_ms, bandwidth_kbps, latency_ms))
 
         # Remove outdated network conditions

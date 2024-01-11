@@ -181,9 +181,7 @@ class Util:
         # bookkeeping to track reaction time to increased bandwidth
 
         # process any previous quality up switches that have "matured"
-        self.process_quality_up(self.network_total_time)
-        #network_total_time: 29630.712000000003
-        #network_total_time: 29999.999999999993        
+        self.process_quality_up(self.network_total_time)     
 
         # mark any pending switch up done if new quality switches back below its quality
         for p in self.pending_quality_up:

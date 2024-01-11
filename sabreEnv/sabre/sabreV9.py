@@ -412,6 +412,7 @@ class Sabre():
         self.no_abandon = no_abandon
         self.seek = seek
 
+        self.util = Util()
         self.util.verbose = verbose
         self.util.buffer_contents = []
         self.util.buffer_fcc = 0

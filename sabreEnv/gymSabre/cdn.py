@@ -61,7 +61,7 @@ class EdgeServer:
 
         # Check what is needed for clients to proceed
         for client in self.clients:
-            if client.status in ['missingTrace', 'downloadedSegment']:
+            if client.status in ['missingTrace', 'downloadedSegment', 'init']:
                 pass
             elif client.status in ['completed', 'delay']:
                 self.clientsRequiresTrace =- 1
