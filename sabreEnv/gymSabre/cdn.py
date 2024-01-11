@@ -8,7 +8,7 @@ import math
 
 class EdgeServer:
 
-    def __init__(self, util, id, location, filename, price=1, bandwidth_kbps=1000):
+    def __init__(self, util, id, location, price=1, bandwidth_kbps=1000):
         self.util = util
 
         self.id = id
@@ -16,11 +16,10 @@ class EdgeServer:
         self.price = price
         self.contigent = 0
         self.bandwidth_kbps = bandwidth_kbps
-        self.currentBandwidth = bandwidth_kbps
+        self.currentBandwidth = bandwidth_kbps # Bandwidth for each client
         self.clients = []
         self.money = 0
 
-        self.filename = filename
         self.buffered_data = []
 
     def sellContigent(self, cpMoney, amount):
@@ -88,17 +87,16 @@ class EdgeServer:
         return distance
 
     def saveData(self, time, finalStep=False):
-        if time == 0 or self.saveData: return
+        if time == 0 or not self.saveData: return
 
         client_ids = [client.id for client in self.clients]
-        self.buffered_data.append([self.util.episodeCounter, time, self.id, np.array(client_ids), self.bandwidth_kbps, self.currentBandwidth, self.contigent, self.money])
+
+        
+
+
+
+        self.buffered_data.append([self.util.episodeCounter, time, self.id, len(client_ids), np.array(client_ids), self.bandwidth_kbps, \
+                                   self.currentBandwidth, self.price, self.money, self.contigent])
         
         if finalStep:
-            file_exists = os.path.isfile(self.filename) and os.path.getsize(self.filename) > 0
-            with open(self.filename, 'a', newline='') as file:
-                writer = csv.writer(file)
-                if not file_exists:
-                    writer.writerow(['episode', 'time', 'id', 'clients', 'bandwidth', 'currentBandwidth', 'contigent', 'money'])
-                
-                for row in self.buffered_data:
-                    writer.writerow(row)
+            self.util.cdnCsvExport(self.buffered_data)

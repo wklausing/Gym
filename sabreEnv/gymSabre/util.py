@@ -31,14 +31,21 @@ class Util:
         self.close()
 
     def cdnCsvExport(self, stepData):
-        all_keys = set(key for d in stepData for key in d.keys())
-        with open(self.cdnFilename, 'w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=all_keys)
-            writer.writeheader()
+        allCdnKeys = ['episode', 'time', 'id', 'clientsCount', 'clients', 'bandwidth_kbps', 'currentBandwidth', 'price', 'money', 'contigent']
+        file_exists = os.path.exists(self.cdnFilename)
+        with open(self.cdnFilename, 'a' if file_exists else 'w', newline='') as file:
+            writer = csv.writer(file)
+            if not file_exists: writer.writerow(allCdnKeys)
             writer.writerows(stepData)
 
     def clientCsvExport(self, stepData):
-        allClientKeys = ['id','location','episode','gymTime','qoe','qoeFlag','estimate','manifest','alive','edgeServer_location', 'cdn_location', 'cdn_id', 'status','size','edgeServer_id','download_time','total_play_time_chunks','total_play_time','total_played_utility','total_log_bitrate_change','total_reaction_time','time_average_played_utility','time_average_rebuffer_events','time_average_score','buffer_size','total_rebuffer_events','time_average_played_bitrate','time_average_log_bitrate_change','rebuffer_ratio','total_bitrate_change','time_average_bitrate_change','total_played_bitrate','time_average_rebuffer','total_rebuffer', 'delay', 'latency', 'bandwidth']
+        allClientKeys = ['id','location','episode','gymTime','qoe','qoeFlag','estimate','manifest','alive',\
+                         'cdn_location', 'cdn_id', 'status','size','download_time',\
+                            'total_play_time_chunks','total_play_time','total_played_utility','total_log_bitrate_change',\
+                                'total_reaction_time','time_average_played_utility','time_average_rebuffer_events','time_average_score',\
+                                    'buffer_size','total_rebuffer_events','time_average_played_bitrate','time_average_log_bitrate_change',\
+                                        'rebuffer_ratio','total_bitrate_change','time_average_bitrate_change','total_played_bitrate',\
+                                            'time_average_rebuffer','total_rebuffer', 'delay', 'latency', 'bandwidth']
         
         #allClientKeys = set(key for d in merged_dicts for key in d.keys())
         file_exists = os.path.exists(self.clientFilename)

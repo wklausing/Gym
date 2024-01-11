@@ -51,6 +51,8 @@ class Client():
         '''
         Here network condition will be provided to Sabre.
         '''
+        self.currentBandwidth = bandwidth_kbps
+        self.currentLatency = latency_ms
         self.updateNetworkAverages(duration_ms, bandwidth_kbps, latency_ms)
         self.sabre.network.add_network_condition(duration_ms=duration_ms, bandwidth_kbps=bandwidth_kbps, latency_ms=latency_ms)
 
@@ -73,6 +75,9 @@ class Client():
             self.average_latency = total_latency / len(self.network_conditions)
 
     def removeNetworkCondition(self):
+        '''
+        Not used, but here network condition will be removed from Sabre. Could be used when i.e. client changes CDN. 
+        '''
         self.sabre.network.remove_network_condition()
 
     def step(self, time):
@@ -106,6 +111,8 @@ class Client():
             'latency': self.currentLatency,
             'bandwidth': self.currentBandwidth
         }
+        self.currentBandwidth = 0
+        self.currentLatency = 0
         metrics.update(stepInfos)
         if self.cdn is not None:
             metrics['cdn_id'] = self.cdn.id

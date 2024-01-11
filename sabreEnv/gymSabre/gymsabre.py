@@ -27,9 +27,6 @@ class GymSabreEnv(gym.Env):
         
         # For recordings
         self.saveData = saveData
-        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.cdnFilename = 'data/cdn_' + time + '.csv'
-        self.cpFilename = 'data/cp_' + time + '.csv'
 
         # Env variables
         self.gridSize = gridSize
@@ -115,7 +112,7 @@ class GymSabreEnv(gym.Env):
         self.cdnPrices = np.round(np.random.uniform(0.5, 2, size=self.cdnCount), 2)
         self.cdns = []
         for e in range(self.cdnCount):
-            self.cdns.append(EdgeServer(self.util, e, self.cdnLocations[e].item(), self.cdnFilename, self.cdnPrices[e]))
+            self.cdns.append(EdgeServer(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e]))
 
         # Reset clients
         self.clients = []
@@ -138,7 +135,8 @@ class GymSabreEnv(gym.Env):
             pass
         elif len(self.clients) < 10:
             if self.np_random.integers(1, 10) > 3 or len(self.clients) <= 0:
-                c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, contentSteering=self.contentSteering, ttl=self.ttl)
+                c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
+                           contentSteering=self.contentSteering, ttl=self.ttl)
                 self.clientIDs += 1
                 self.totalClients -= 1
                 self.clients.append(c)
@@ -162,9 +160,9 @@ class GymSabreEnv(gym.Env):
             print('All clients done.')
         elif money <= -1_000_000:
             print('Money is below -1_000_000.')
-        elif self.stepCounter >= 7_200:
+        elif self.stepCounter >= 10000:
             print('Maximal step is reached.')
-        terminated = money <= -1_000_000 or self.stepCounter >= 7_200 or allClientsDone
+        terminated = money <= -1_000_000 or self.stepCounter >= 10000 or allClientsDone
 
         # Saving data
         clients_to_remove = []
@@ -226,11 +224,11 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, cdnLocations=2, saveData=True, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=1, cdnLocations=1, totalClients=1, saveData=True, contentSteering=False)
     env = RecordEpisodeStatistics(env)
     observation, info = env.reset()
 
-    steps = 100_000
+    steps = 10000
     for i in range(steps):
         progress = round(i / steps * 100,0)
         print('Progress:', progress, '/100')
