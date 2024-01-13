@@ -33,7 +33,9 @@ class Client():
         self.metrics = []# Includes also step information.
 
     def setManifest(self, manifest):
-        # Remove duplicates
+        '''
+        Remove duplicates from manifest.
+        '''
         unique_list = []
         seen = set()
         for item in manifest:

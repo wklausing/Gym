@@ -8,9 +8,9 @@ class TestMainFunction(unittest.TestCase):
 
     def testCheck_env(self):
         try:
-            check_env(env=GymSabreEnv(render_mode="human", clients=2), warn=True, skip_render_check=True)
+            check_env(env=GymSabreEnv(render_mode="human", maxActiveClients=1, totalClients=1, cdnLocations=1), warn=True, skip_render_check=True)
         except:
-            self.fail("check_env() raised Exception unexpectedly!")
+            self.fail("check_env() raised Exception!")
 
     def testBandwidth(self):
         '''

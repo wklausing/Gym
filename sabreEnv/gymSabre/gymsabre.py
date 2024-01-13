@@ -5,9 +5,9 @@ from CDNs and create manifests for clients. The reward is the cumulative reward 
 
 import numpy as np
 import gymnasium as gym
-from gymnasium import spaces
+from gymnasium import spaces, utils
 
-from gymnasium.wrappers import RecordEpisodeStatistics
+from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit
 
 from datetime import datetime
 
@@ -30,8 +30,6 @@ class GymSabreEnv(gym.Env):
 
         # Env variables
         self.gridSize = gridSize
-
-        # CP-Agent variables
                 
         # CDN variables
         self.cdnCount = cdnLocations
@@ -47,8 +45,8 @@ class GymSabreEnv(gym.Env):
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
             {
-                'client': gym.spaces.Discrete(gridSize+1, start=-1),
-                'clientsLocations': gym.spaces.MultiDiscrete([gridSize] * maxActiveClients),
+                'clientLocation': gym.spaces.Discrete(gridSize+1, start=0),
+                'clientsLocations': gym.spaces.MultiDiscrete([gridSize+1] * maxActiveClients),
                 'cdnLocations': gym.spaces.MultiDiscrete([gridSize] * cdnLocations),
                 'cdnPrices': spaces.Box(0, 10, shape=(cdnLocations,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
@@ -62,27 +60,28 @@ class GymSabreEnv(gym.Env):
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
 
     def _get_obs(self):
-        # Client who receices a manifest
-        clientManifest = -1
+        # Client who receices a manifest. If no client needs a manifest, the clientManifest is the gridSize.
+        clientManifest = self.gridSize
         for client in self.clients:
             if client.alive and client.needsManifest:
                 clientManifest = client.location
 
         # clientsLocations
         clientsLocations = []
-        self.maxActiveClients
         for client in self.clients:
             clientsLocations.append(client.location)
 
-        # Fill clientsLocations with -1 so that observation space doesn't change
+        # Fill clientsLocations with gridSize so that observation space doesn't change
         while len(clientsLocations) < self.maxActiveClients:
-            clientsLocations.append(-1)
+            clientsLocations.append(self.gridSize)
 
         return {
-            'client': np.array(clientManifest), 
-            'clientsLocations': clientsLocations, 'serviceLocations': self.cdnLocations
-                , 'cdnPrices': self.cdnPrices, 'time': self.time
-                , 'money': self.money}
+            'clientLocation': np.array(clientManifest), 
+            'clientsLocations': clientsLocations, 
+            'cdnLocations': self.cdnLocations, 
+            'cdnPrices': self.cdnPrices, 
+            'time': self.time, 
+            'money': self.money}
 
     def _get_info(self, reward):
         self.sumReward += reward
@@ -90,9 +89,7 @@ class GymSabreEnv(gym.Env):
                 'activeClients': self.clients, 'cdnLocations': self.cdnLocations, 'cdnPrices': self.cdnPrices}
 
     def reset(self, seed=None, options=None):
-        
-        # We need the following line to seed self.np_random
-        super().reset(seed=seed)
+        super().reset(seed=seed)# We need the following line to seed self.np_random
 
         # For recordings
         self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
@@ -123,26 +120,6 @@ class GymSabreEnv(gym.Env):
         info = {}
         
         return observation, info
-    
-    def clientAdder(self, time):
-        '''
-        Here the appearing of clients is managed. 
-        '''
-        self.oldTime = time
-        if self.totalClients <= 0:
-            pass
-        elif len(self.clients) >= self.maxActiveClients:
-            pass
-        elif len(self.clients) < 10:
-            if self.np_random.integers(1, 10) > 3 or len(self.clients) <= 0:
-                c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
-                           contentSteering=self.contentSteering, ttl=self.ttl)
-                self.clientIDs += 1
-                self.totalClients -= 1
-                self.clients.append(c)
-        else:
-            pass
-        pass
 
     def step(self, action):
         self.stepCounter += 1
@@ -182,9 +159,9 @@ class GymSabreEnv(gym.Env):
             pass
         else:
             # Buy contigent from CDNs
-            buyContigent = action[:len(self.buyContingent)] 
+            buyContigent = action[:len(self.buyContingent)]
             for i, cdn in enumerate(self.cdns):
-                if hasattr(buyContigent[i], 'item'): 
+                if hasattr(buyContigent[i], 'item'):
                     money = cdn.sellContigent(money, buyContigent[i].item())
                 else:
                     money = cdn.sellContigent(money, buyContigent[i])
@@ -221,14 +198,35 @@ class GymSabreEnv(gym.Env):
     def render(self, mode="human"):
         pass
         
+    def clientAdder(self, time):
+        '''
+        Here the appearing of clients is managed. 
+        '''
+        self.oldTime = time
+        if self.totalClients <= 0:
+            pass
+        elif len(self.clients) >= self.maxActiveClients:
+            pass
+        elif len(self.clients) < 10:
+            if self.np_random.integers(1, 10) > 3 or len(self.clients) <= 0:
+                c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
+                           contentSteering=self.contentSteering, ttl=self.ttl)
+                self.clientIDs += 1
+                self.totalClients -= 1
+                self.clients.append(c)
+        else:
+            pass
+        pass
 
 if __name__ == "__main__":
     print('### Start ###')
-    env = GymSabreEnv(render_mode="human", maxActiveClients=1, cdnLocations=1, totalClients=1, saveData=True, contentSteering=False)
+    steps = 10000
+
+    env = GymSabreEnv(render_mode="human", maxActiveClients=1, totalClients=1, cdnLocations=1, saveData=True, contentSteering=False)
     env = RecordEpisodeStatistics(env)
+    env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
 
-    steps = 10000
     for i in range(steps):
         progress = round(i / steps * 100,0)
         print('Progress:', progress, '/100')

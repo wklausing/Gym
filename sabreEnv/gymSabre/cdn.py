@@ -1,9 +1,6 @@
 import gymnasium as gym
 import numpy as np
 
-import os
-import csv
-
 import math
 
 class EdgeServer:
@@ -14,21 +11,13 @@ class EdgeServer:
         self.id = id
         self.location = location
         self.price = price
-        self.contigent = 0
+        self.contigent = 0# In kilobytes
         self.bandwidth_kbps = bandwidth_kbps
         self.currentBandwidth = bandwidth_kbps # Bandwidth for each client
         self.clients = []
         self.money = 0
 
         self.buffered_data = []
-
-    def sellContigent(self, cpMoney, amount):
-        price = round(self.price * amount,2)
-        if cpMoney >= price:
-            cpMoney -= price
-            self.money += price
-            self.contigent += amount * 1000
-        return round(cpMoney, 2)
     
     def addClient(self, client):
         self.clients.append(client)
@@ -39,14 +28,29 @@ class EdgeServer:
         if len(self.clients) == 0: return
         self.currentBandwidth = round(self.bandwidth_kbps / len(self.clients),2)
 
-    def deductContigent(self, amount):
-        amountMB = amount / 8_000_000
-        if self.contigent >= amountMB:
-            self.contigent -= amountMB
-            self.contigent = round(self.contigent, 2)
+    def sellContigent(self, cpMoney, amount):
+        '''
+        Amout is in GB.
+        '''
+        price = round(self.price * amount,2)
+        cpMoney -= price
+        self.money += price
+        self.contigent += amount * 1000000
+        gym.logger.info('CP bought %s GBs from CDN %s for a price of %s.' % (amount, self.id, self.price))
+        return round(cpMoney, 2)    
+
+    def deductContigent(self, duration, bandwidth, latency):
+        '''
+        Deduct amount of contigent from CDN, and also deducts money from CP.
+        '''
+        amount = bandwidth * duration / 1000
+        if self.contigent >= amount:
+            self.contigent -= amount
+            self.contigent = round(self.contigent, 2)            
         else:
             gym.logger.warn('Deducting too much contigent from CDN %s.' % self.id)
-            quit()
+            return False
+        return True
     
     @property
     def bandwidth(self):
@@ -74,7 +78,10 @@ class EdgeServer:
             duration = 1000
             bandwidth = self.bandwidth_kbps / len(clients)
             latency = self._determineLatency(self.location, client.location)
-            client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)
+            if self.deductContigent(duration, bandwidth, latency):
+                client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)
+            else:
+                client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=0, latency_ms=latency)
 
     def _determineLatency(self, position1, position2):
         '''
@@ -88,15 +95,8 @@ class EdgeServer:
 
     def saveData(self, time, finalStep=False):
         if time == 0 or not self.saveData: return
-
         client_ids = [client.id for client in self.clients]
-
-        
-
-
-
         self.buffered_data.append([self.util.episodeCounter, time, self.id, len(client_ids), np.array(client_ids), self.bandwidth_kbps, \
                                    self.currentBandwidth, self.price, self.money, self.contigent])
-        
         if finalStep:
             self.util.cdnCsvExport(self.buffered_data)
