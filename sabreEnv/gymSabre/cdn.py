@@ -11,7 +11,7 @@ class EdgeServer:
         self.id = id
         self.location = location
         self.price = price
-        self.contigent = 0# In kilobytes
+        self.contigent = 0# In bits
         self.bandwidth_kbps = bandwidth_kbps
         self.currentBandwidth = bandwidth_kbps # Bandwidth for each client
         self.clients = []
@@ -30,20 +30,20 @@ class EdgeServer:
 
     def sellContigent(self, cpMoney, amount):
         '''
-        Amout is in GB.
+        Input amout is in GB.
         '''
         price = round(self.price * amount,2)
         cpMoney -= price
         self.money += price
-        self.contigent += amount * 1000000
+        self.contigent += amount * 8_000_000_000
         gym.logger.info('CP bought %s GBs from CDN %s for a price of %s.' % (amount, self.id, self.price))
         return round(cpMoney, 2)    
 
     def deductContigent(self, duration, bandwidth, latency):
         '''
-        Deduct amount of contigent from CDN, and also deducts money from CP.
+        Deduct amount of contigent from CDN.
         '''
-        amount = bandwidth * duration / 1000
+        amount = bandwidth * duration
         if self.contigent >= amount:
             self.contigent -= amount
             self.contigent = round(self.contigent, 2)            

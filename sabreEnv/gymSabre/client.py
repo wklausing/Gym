@@ -65,7 +65,6 @@ class Client():
         self.network_conditions.append((duration_ms, bandwidth_kbps, latency_ms))
 
         # Remove outdated network conditions
-        foo = self.network_conditions[0][0]
         while len(self.network_conditions) > 10:
             self.network_conditions.popleft()
 
