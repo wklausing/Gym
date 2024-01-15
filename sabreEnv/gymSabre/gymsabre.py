@@ -15,6 +15,10 @@ from sabreEnv.gymSabre.client import Client
 from sabreEnv.gymSabre.cdn import EdgeServer
 from sabreEnv.gymSabre.util import Util
 
+import pandas as pd
+
+import queue
+
 gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
@@ -27,6 +31,10 @@ class GymSabreEnv(gym.Env):
         
         # For recordings
         self.saveData = saveData
+
+        # For rendering
+        if render_mode == 'human':
+            self.renderData = queue.Queue()
 
         # Env variables
         self.gridSize = gridSize
@@ -196,7 +204,34 @@ class GymSabreEnv(gym.Env):
         return observation, reward, terminated, False, info
 
     def render(self, mode="human"):
-        pass
+        if mode == "human":
+            data = {
+                'id': [],
+                'type': [],
+                'x': [], 
+                'y': [],
+                'x_target': [],
+                'y_target': [],
+                'alive': []
+            }
+            data = pd.DataFrame(data)
+
+            # Collect data
+            for cdn in self.cdns:
+                id = cdn.id
+                x,y = self.get_coordinates(cdn.location, self.gridSize)
+                newRow = {'id':id, 'type': 'CDN', 'x': x, 'y': y, 'x_target': 0, 'y_target': 0, 'alive': True}
+                data = pd.concat([data, pd.DataFrame([newRow])], ignore_index=True)
+
+            for c in self.clients:
+                id = c.id
+                x,y = self.get_coordinates(c.location, self.gridSize)
+                x_target,y_target = self.get_coordinates(c.cdn.location, self.gridSize)
+                newRow = {'id':id, 'type': 'Client', 'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
+                data = pd.concat([data, pd.DataFrame([newRow])], ignore_index=True)
+
+            print(data)
+            pass
         
     def clientAdder(self, time):
         '''
@@ -217,6 +252,15 @@ class GymSabreEnv(gym.Env):
         else:
             pass
         pass
+
+    def get_coordinates(self, single_integer, grid_width):
+        '''
+        Calculates x and y coordinates from a single integer.
+        '''
+        grid_width = 100 # TODO: Remove this hard coded value
+        x = single_integer % grid_width
+        y = single_integer // grid_width
+        return x, y
 
 if __name__ == "__main__":
     print('### Start ###')
