@@ -20,6 +20,7 @@ class Client():
         self.ttl = ttl
         self.qoeMeasure = 'bitrate'
         self.manifest = []
+        self.missingTraceTime = 0
 
         self.network_conditions = deque()
         self.currentBandwidth = 0
@@ -43,7 +44,7 @@ class Client():
                 unique_list.append(item)
                 seen.add(item)
 
-        self.manifest = manifest
+        self.manifest = unique_list
         self.idxManifest = 0
         self.cdn = self.cdns[self.manifest[self.idxManifest]]
         self.cdn.addClient(self)
@@ -95,11 +96,25 @@ class Client():
         self.time = time
 
         # Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
-        metrics = self._getSabreMetrics()
+        metrics = self.sabre.downloadSegment()
+        self.qoeStatus = metrics['status']
+        if metrics['status'] == 'completed': self._setDone()
         self.status = metrics['status']
         
         # Check if client wants to change CDN
         if self.average_bandwidth != None and self.alive: self._evaluateAndSwitchServer()
+
+        # Check if client want to abort streaming
+        if metrics['status'] == 'missingTrace': 
+            self.missingTraceTime += 1
+        else:
+            self.missingTraceTime = 0
+
+        if self.missingTraceTime >= 10: 
+            gym.logger.info('Client %s aborted streaming.' % self.id)
+            self.alive = False
+            self.cdn.removeClient(self)
+            self.status = 'abortedStreaming'
 
         # Save data for later
         stepInfos = {
@@ -137,15 +152,6 @@ class Client():
             qoe = metrics['time_average_played_bitrate'] - metrics['time_average_bitrate_change'] * \
                 - metrics['time_average_rebuffer_events']
         return qoe
-    
-    def _getSabreMetrics(self):
-        '''
-        Entering Sabre to get calculate metrics.
-        '''
-        result = self.sabre.downloadSegment()
-        self.qoeStatus = result['status']
-        if result['status'] == 'completed': self._setDone()
-        return result
     
     def _evaluateAndSwitchServer(self):
         '''

@@ -14,10 +14,9 @@ from datetime import datetime
 from sabreEnv.gymSabre.client import Client
 from sabreEnv.gymSabre.cdn import EdgeServer
 from sabreEnv.gymSabre.util import Util
+#from sabreEnv.gymSabre.render import run_dash_app
 
 import pandas as pd
-
-import queue
 
 gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
@@ -31,10 +30,22 @@ class GymSabreEnv(gym.Env):
         
         # For recordings
         self.saveData = saveData
+        self.episodeCounter = 0
 
         # For rendering
         if render_mode == 'human':
-            self.renderData = queue.Queue()
+            renderData = {
+                'episode': [],
+                'step': [],
+                'id': [],
+                'type': [],
+                'x': [], 
+                'y': [],
+                'x_target': [],
+                'y_target': [],
+                'alive': []
+            }
+            self.renderData = pd.DataFrame(renderData)
 
         # Env variables
         self.gridSize = gridSize
@@ -89,7 +100,8 @@ class GymSabreEnv(gym.Env):
             'cdnLocations': self.cdnLocations, 
             'cdnPrices': self.cdnPrices, 
             'time': self.time, 
-            'money': self.money}
+            'money': self.money
+        }
 
     def _get_info(self, reward):
         self.sumReward += reward
@@ -104,6 +116,7 @@ class GymSabreEnv(gym.Env):
         self.data = []
         self.util.episodeCounter += 1
         self.stepCounter = 0
+        self.episodeCounter += 1
         
         # Reset env variables
         self.sumReward = 0
@@ -192,6 +205,7 @@ class GymSabreEnv(gym.Env):
             # Let client do its move
             for client in self.clients:
                 clientMetrics = client.step(time)
+                # Here Reward can be shaped.
                 reward += clientMetrics['qoe']
                 pass
 
@@ -205,33 +219,28 @@ class GymSabreEnv(gym.Env):
 
     def render(self, mode="human"):
         if mode == "human":
-            data = {
-                'id': [],
-                'type': [],
-                'x': [], 
-                'y': [],
-                'x_target': [],
-                'y_target': [],
-                'alive': []
-            }
-            data = pd.DataFrame(data)
 
             # Collect data
             for cdn in self.cdns:
                 id = cdn.id
                 x,y = self.get_coordinates(cdn.location, self.gridSize)
-                newRow = {'id':id, 'type': 'CDN', 'x': x, 'y': y, 'x_target': 0, 'y_target': 0, 'alive': True}
-                data = pd.concat([data, pd.DataFrame([newRow])], ignore_index=True)
+                newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id': id, 'type': 'CDN', \
+                          'x': x, 'y': y, 'x_target': 0, 'y_target': 0, 'alive': True}
+                self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
 
             for c in self.clients:
                 id = c.id
                 x,y = self.get_coordinates(c.location, self.gridSize)
                 x_target,y_target = self.get_coordinates(c.cdn.location, self.gridSize)
-                newRow = {'id':id, 'type': 'Client', 'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
-                data = pd.concat([data, pd.DataFrame([newRow])], ignore_index=True)
+                newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id':id, 'type': 'Client', \
+                          'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
+                self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
 
-            print(data)
-            pass
+    def close(self):
+        super().close()
+        if self.saveData:
+            self.renderData.to_csv('sabreEnv/gymSabre/data/renderData.csv', index=False)
+            print('Data saved to renderData.csv')
         
     def clientAdder(self, time):
         '''
@@ -242,7 +251,7 @@ class GymSabreEnv(gym.Env):
             pass
         elif len(self.clients) >= self.maxActiveClients:
             pass
-        elif len(self.clients) < 10:
+        elif len(self.clients) < self.maxActiveClients:
             if self.np_random.integers(1, 10) > 3 or len(self.clients) <= 0:
                 c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
                            contentSteering=self.contentSteering, ttl=self.ttl)
@@ -266,7 +275,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 10000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=1, totalClients=1, cdnLocations=1, saveData=True, contentSteering=False)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, cdnLocations=5, saveData=True, contentSteering=True)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
@@ -280,7 +289,8 @@ if __name__ == "__main__":
 
         if terminated or truncated:
             observation, info = env.reset()
-            pass
+            env.close()
+            exit()
 
         if i == steps-1:
             print('All steps done.')
