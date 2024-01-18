@@ -57,9 +57,9 @@ class EdgeServer:
         return self.bandwidth_kbps
     
     clientsStatus = {}
-    def manageClients(self, time):
+    def distributeNetworkConditions(self, time):
         '''
-        Here clients will fetch content from CDN and return the result as a dictionary.
+        Here clients receive network conditions.
         '''
 
         # Check what is needed for clients to proceed

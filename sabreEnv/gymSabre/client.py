@@ -56,6 +56,7 @@ class Client():
         self.cdn = self.cdns[self.manifest[self.idxManifest]]
         self.cdn.addClient(self)
         self.needsManifest = False
+        gym.logger.info('Client %s got manifest %s.' % (self.id, self.manifest))
 
     def provideNetworkCondition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''

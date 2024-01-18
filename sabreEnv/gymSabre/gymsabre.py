@@ -25,7 +25,7 @@ class GymSabreEnv(gym.Env):
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, cdnLocations=4, \
                  maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, \
-                ttl=500, maxSteps=1000):
+                ttl=500, maxSteps=1000, manifestLenght=4):
         # Util
         self.util = Util()
         
@@ -79,7 +79,7 @@ class GymSabreEnv(gym.Env):
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
         self.buyContingent = [100] * cdnLocations
-        self.manifest = cdnLocations * [cdnLocations]
+        self.manifest = manifestLenght * [cdnLocations]
         self.action_space = gym.spaces.MultiDiscrete(self.buyContingent + self.manifest)
 
     def _get_obs(self):
@@ -127,7 +127,7 @@ class GymSabreEnv(gym.Env):
         self.time = np.array([0], dtype='int')
 
         # Reset CP-Agent
-        self.money = np.array([100], dtype='int')
+        self.money = np.array([0], dtype='int')
 
         # Reset CDN servers
         self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
@@ -187,15 +187,6 @@ class GymSabreEnv(gym.Env):
             print('Termination time:', time)
             pass
         else:
-            # Buy contigent from CDNs
-            buyContigent = action[:len(self.buyContingent)]
-            for i, cdn in enumerate(self.cdns):
-                if hasattr(buyContigent[i], 'item'):
-                    money = cdn.sellContigent(money, buyContigent[i].item())
-                else:
-                    money = cdn.sellContigent(money, buyContigent[i])
-            self.money = np.array([money], dtype='int')
-
             # Add manifest to client
             manifest = action[len(self.buyContingent):]
             for i, client in enumerate(self.clients):
@@ -204,12 +195,18 @@ class GymSabreEnv(gym.Env):
                     setManifest = True
                     break
             
-        if not setManifest:
-            # Manage clients
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
-            if allClientsHaveManifest:
+            if allClientsHaveManifest and not setManifest:
+                # Buy contigent from CDNs
+                buyContigent = action[:len(self.buyContingent)]
+                for i, cdn in enumerate(self.cdns):
+                    if hasattr(buyContigent[i], 'item'):
+                        money = cdn.sellContigent(money, buyContigent[i].item())
+                    else:
+                        money = cdn.sellContigent(money, buyContigent[i])
+                
                 for cdn in self.cdns:
-                    cdn.manageClients(time)
+                    cdn.distributeNetworkConditions(time)
                 time += 1
 
                 # Let client do its move
@@ -217,8 +214,12 @@ class GymSabreEnv(gym.Env):
                 for client in self.clients:
                     metrics[client.id] = client.step(time)
                     pass
-                reward = self.reward(metrics)
+                
+                # Collect information for reward                
+                reward = self.reward(metrics, money)
+                
 
+            self.money = np.array([money], dtype='int')
             self.time = np.array([time], dtype='int')
         
         observation = self._get_obs()
@@ -227,7 +228,7 @@ class GymSabreEnv(gym.Env):
 
         return observation, reward, terminated, False, info
     
-    def reward(self, metrics):
+    def reward(self, metrics, money):
         '''
         Possible returns from Sabre:
         - missingTrace: Sabre does not have enough trace to complete a download.
