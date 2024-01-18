@@ -6,6 +6,13 @@ class Client():
     '''
     Manifest is list with the ids of edge-server.
     cdns is list of edge-servers.
+
+    Possible returns from sabre:
+    - missingTrace: Sabre does not have enough information to make a decision.
+    - downloadedSegment: Sabre has downloaded a segment.
+    - completed: Sabre has downloaded all segments.
+    - abortedStreaming: Sabre has aborted streaming.
+    - delay: Sabre has a delay, because it buffered enough content already.
     '''
     def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60):
         self.util = util
@@ -29,8 +36,8 @@ class Client():
 
         # Sabre implementation
         self.sabre = Sabre(verbose=False)
-        self.qoeStatus = 'init'  
         self.status = 'init' 
+        self.delay = 0
         self.metrics = []# Includes also step information.
 
     def setManifest(self, manifest):
@@ -61,7 +68,8 @@ class Client():
 
     def updateNetworkAverages(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
-        Network conditions is the reason for a client to change CDN. Therefore, the average of the last 10 network conditions is calculated.
+        Network conditions is the reason for a client to change CDN. 
+        Therefore, the average of the last 10 network conditions is calculated.
         '''
         self.network_conditions.append((duration_ms, bandwidth_kbps, latency_ms))
 
@@ -78,7 +86,8 @@ class Client():
 
     def removeNetworkCondition(self):
         '''
-        Not used, but here network condition will be removed from Sabre. Could be used when i.e. client changes CDN. 
+        Not used, but here network condition will be removed from Sabre. 
+        Could be used when i.e. client changes CDN. 
         '''
         self.sabre.network.remove_network_condition()
 
@@ -93,28 +102,37 @@ class Client():
                 gym.logger.info('Client %s aks for new manifest.' % self.id)
                 self.needsManifest = True
 
-        self.time = time
+        if self.time == time: # Client already did its move
+            metrics = {'status': 'delay', 'delay': self.delay}
+        elif self.delay > 0: # Delay is set by Sabre
+            self.delay -= 1
+            metrics = {'status': 'delay', 'delay': self.delay}
+        else: # Delay is over
+            self.time = time
 
-        # Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
-        metrics = self.sabre.downloadSegment()
-        self.qoeStatus = metrics['status']
-        if metrics['status'] == 'completed': self._setDone()
-        self.status = metrics['status']
-        
-        # Check if client wants to change CDN
-        if self.average_bandwidth != None and self.alive: self._evaluateAndSwitchServer()
+            # Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
+            metrics = self.sabre.downloadSegment()
+            if metrics['status'] == 'completed': 
+                self._setDone()
+            self.status = metrics['status']
+            gym.logger.info('Client %s at time %s is currently in state %s.' % (self.id, time, self.status))
+            
+            # Check if client wants to change CDN
+            if self.average_bandwidth != None and self.alive: self._evaluateAndSwitchServer()
 
-        # Check if client want to abort streaming
-        if metrics['status'] == 'missingTrace': 
-            self.missingTraceTime += 1
-        else:
-            self.missingTraceTime = 0
+            # Check if client want to abort streaming
+            if metrics['status'] == 'missingTrace': 
+                self.missingTraceTime += 1
+                if self.missingTraceTime >= 10: 
+                    gym.logger.info('Client %s aborted streaming.' % self.id)
+                    self.alive = False
+                    self.cdn.removeClient(self)
+                    self.status = 'abortedStreaming'
+            else:
+                self.missingTraceTime = 0
 
-        if self.missingTraceTime >= 10: 
-            gym.logger.info('Client %s aborted streaming.' % self.id)
-            self.alive = False
-            self.cdn.removeClient(self)
-            self.status = 'abortedStreaming'
+            if metrics['status'] == 'delay':
+                self.delay = metrics['delay']
 
         # Save data for later
         stepInfos = {
@@ -142,6 +160,7 @@ class Client():
             metrics['qoe'] = 0
             metrics['qoeFlag'] = False
         self.metrics.append(metrics)
+
         return metrics 
     
     def _qoe(self, metrics):
@@ -159,6 +178,7 @@ class Client():
         '''
         if self.average_bandwidth < 200 or self.average_latency > 2000:
             self._changeCDN()
+            gym.logger.info('Client %s changed CDN because of bad network conditions.' % self.id)
         
     def _changeCDN(self):
         '''
@@ -177,7 +197,7 @@ class Client():
             gym.logger.info('Client %s changed from CDN %s to %s.' % (self.id, self.manifest[previousCDN], self.manifest[self.idxManifest]))
         
     def _setDone(self):
-        gym.logger.info('Client %s downloaded content successfully at time %s.' % (self.id, self.time))
+        gym.logger.info('Client %s completed download successfully at time %s.' % (self.id, self.time))
         self.alive = False
         self.cdn.removeClient(self)
 

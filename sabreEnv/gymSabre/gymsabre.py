@@ -23,7 +23,7 @@ gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridSize=100*100, cdnLocations=4, \
+    def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, cdnLocations=4, \
                  maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, ttl=500):
         # Util
         self.util = Util()
@@ -48,7 +48,9 @@ class GymSabreEnv(gym.Env):
             self.renderData = pd.DataFrame(renderData)
 
         # Env variables
-        self.gridSize = gridSize
+        self.gridWidth = gridWidth
+        self.gridHeight = gridHeight
+        self.gridSize = gridWidth * gridHeight
                 
         # CDN variables
         self.cdnCount = cdnLocations
@@ -64,9 +66,9 @@ class GymSabreEnv(gym.Env):
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
             {
-                'clientLocation': gym.spaces.Discrete(gridSize+1, start=0),
-                'clientsLocations': gym.spaces.MultiDiscrete([gridSize+1] * maxActiveClients),
-                'cdnLocations': gym.spaces.MultiDiscrete([gridSize] * cdnLocations),
+                'clientLocation': gym.spaces.Discrete(self.gridSize+1, start=0),
+                'clientsLocations': gym.spaces.MultiDiscrete([self.gridSize+1] * maxActiveClients),
+                'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdnLocations),
                 'cdnPrices': spaces.Box(0, 10, shape=(cdnLocations,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
                 'money': spaces.Box(0, 100_000, shape=(1,), dtype=int),
@@ -148,6 +150,7 @@ class GymSabreEnv(gym.Env):
         time = self.time.item()
         money = self.money.item()
         reward = 0
+        setManifest = False # Flag to check if a manifest had been set
 
         # Add clients
         self.clientAdder(time)
@@ -193,8 +196,10 @@ class GymSabreEnv(gym.Env):
             for i, client in enumerate(self.clients):
                 if client.alive and client.needsManifest:
                     client.setManifest(manifest.tolist())
+                    setManifest = True
                     break
             
+        if not setManifest:
             # Manage clients
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest:
@@ -202,12 +207,12 @@ class GymSabreEnv(gym.Env):
                     cdn.manageClients(time)
                 time += 1
 
-            # Let client do its move
-            for client in self.clients:
-                clientMetrics = client.step(time)
-                # Here Reward can be shaped.
-                reward += clientMetrics['qoe']
-                pass
+                # Let client do its move
+                metrics = {}
+                for client in self.clients:
+                    metrics[client.id] = client.step(time)
+                    pass
+                reward = self.reward(metrics)
 
             self.time = np.array([time], dtype='int')
         
@@ -216,6 +221,23 @@ class GymSabreEnv(gym.Env):
         self.render()
 
         return observation, reward, terminated, False, info
+    
+    def reward(self, metrics):
+        '''
+        Possible returns from Sabre:
+        - missingTrace: Sabre does not have enough trace to complete a download.
+        - downloadedSegment: Sabre has downloaded a segment.
+        - completed: Sabre has downloaded all segments.
+        - abortedStreaming: Sabre has aborted streaming.
+        - delay: Sabre has a delay, because it buffered enough content already.
+        '''
+        reward = 0
+        for metric in metrics.values():
+            if metric['status'] == 'completed' or metric['status'] == 'downloadedSegment':
+                reward += 1
+            elif metric['status'] == 'abortStreaming':
+                reward -= 10
+        return reward / len(metrics)
 
     def render(self, mode="human"):
         if mode == "human":
@@ -231,7 +253,10 @@ class GymSabreEnv(gym.Env):
             for c in self.clients:
                 id = c.id
                 x,y = self.get_coordinates(c.location, self.gridSize)
-                x_target,y_target = self.get_coordinates(c.cdn.location, self.gridSize)
+                if c.cdn is None:
+                    x_target,y_target = x,y
+                else:
+                    x_target,y_target = self.get_coordinates(c.cdn.location, self.gridSize)
                 newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id':id, 'type': 'Client', \
                           'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
                 self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
@@ -240,13 +265,12 @@ class GymSabreEnv(gym.Env):
         super().close()
         if self.saveData:
             self.renderData.to_csv('sabreEnv/gymSabre/data/renderData.csv', index=False)
-            print('Data saved to renderData.csv')
+            gym.logger.info('Data saved to renderData.csv')
         
     def clientAdder(self, time):
         '''
         Here the appearing of clients is managed. 
         '''
-        self.oldTime = time
         if self.totalClients <= 0:
             pass
         elif len(self.clients) >= self.maxActiveClients:
@@ -258,9 +282,6 @@ class GymSabreEnv(gym.Env):
                 self.clientIDs += 1
                 self.totalClients -= 1
                 self.clients.append(c)
-        else:
-            pass
-        pass
 
     def get_coordinates(self, single_integer, grid_width):
         '''
@@ -273,9 +294,9 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    steps = 10000
+    steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, cdnLocations=5, saveData=True, contentSteering=True)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=5, totalClients=100, cdnLocations=10, saveData=True, contentSteering=True)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()

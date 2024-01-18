@@ -30,7 +30,7 @@ class EdgeServer:
 
     def sellContigent(self, cpMoney, amount):
         '''
-        Input amout is in GB.
+        Input amount is in GB.
         '''
         price = round(self.price * amount,2)
         cpMoney -= price
@@ -64,7 +64,7 @@ class EdgeServer:
 
         # Check what is needed for clients to proceed
         for client in self.clients:
-            if client.status in ['missingTrace', 'downloadedSegment', 'init']:
+            if client.status in ['missingTrace', 'downloadedSegment', 'init', 'abortedStreaming']:
                 pass
             elif client.status in ['completed', 'delay']:
                 self.clientsRequiresTrace =- 1

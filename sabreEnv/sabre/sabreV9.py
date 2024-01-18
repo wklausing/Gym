@@ -620,6 +620,7 @@ class Sabre():
         results_dict = {
             'size': self.sizeTEMP,
             'buffer_size': self.buffer_size,
+            'buffer_level': self.util.get_buffer_level(),
             'total_played_utility': self.util.played_utility,
             'time_average_played_utility': self.util.played_utility * to_time_average,
             'total_played_bitrate': self.util.played_bitrate,
