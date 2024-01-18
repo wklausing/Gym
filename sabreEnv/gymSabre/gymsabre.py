@@ -24,7 +24,8 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, cdnLocations=4, \
-                 maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, ttl=500):
+                 maxActiveClients=10, totalClients=100, saveData=False, contentSteering=False, \
+                ttl=500, maxSteps=1000):
         # Util
         self.util = Util()
         
@@ -51,6 +52,7 @@ class GymSabreEnv(gym.Env):
         self.gridWidth = gridWidth
         self.gridHeight = gridHeight
         self.gridSize = gridWidth * gridHeight
+        self.maxSteps = maxSteps
                 
         # CDN variables
         self.cdnCount = cdnLocations
@@ -161,9 +163,12 @@ class GymSabreEnv(gym.Env):
             print('All clients done.')
         elif money <= -1_000_000:
             print('Money is below -1_000_000.')
-        elif self.stepCounter >= 10000:
+        elif self.stepCounter >= self.maxSteps:
             print('Maximal step is reached.')
-        terminated = money <= -1_000_000 or self.stepCounter >= 10000 or allClientsDone
+        terminated = money <= -1_000_000 or self.stepCounter >= self.maxSteps or allClientsDone
+
+        if terminated:
+            pass
 
         # Saving data
         clients_to_remove = []
@@ -231,6 +236,7 @@ class GymSabreEnv(gym.Env):
         - abortedStreaming: Sabre has aborted streaming.
         - delay: Sabre has a delay, because it buffered enough content already.
         '''
+        if len(metrics) == 0: return 0
         reward = 0
         for metric in metrics.values():
             if metric['status'] == 'completed' or metric['status'] == 'downloadedSegment':
@@ -296,7 +302,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=5, totalClients=100, cdnLocations=10, saveData=True, contentSteering=True)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=5, totalClients=100, cdnLocations=10, saveData=True, contentSteering=True, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()

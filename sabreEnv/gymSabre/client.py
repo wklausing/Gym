@@ -105,7 +105,8 @@ class Client():
         if self.time == time: # Client already did its move
             metrics = {'status': 'delay', 'delay': self.delay}
         elif self.delay > 0: # Delay is set by Sabre
-            self.delay -= 1
+            self.delay -= 1000
+            if self.delay < 0: self.delay = 0
             metrics = {'status': 'delay', 'delay': self.delay}
         else: # Delay is over
             self.time = time
@@ -115,12 +116,11 @@ class Client():
             if metrics['status'] == 'completed': 
                 self._setDone()
             self.status = metrics['status']
-            gym.logger.info('Client %s at time %s is currently in state %s.' % (self.id, time, self.status))
             
             # Check if client wants to change CDN
             if self.average_bandwidth != None and self.alive: self._evaluateAndSwitchServer()
 
-            # Check if client want to abort streaming
+            # Check if client wants to abort streaming
             if metrics['status'] == 'missingTrace': 
                 self.missingTraceTime += 1
                 if self.missingTraceTime >= 10: 
@@ -161,6 +161,7 @@ class Client():
             metrics['qoeFlag'] = False
         self.metrics.append(metrics)
 
+        gym.logger.info('Client %s at time %s is currently in state %s.' % (self.id, time, self.status))
         return metrics 
     
     def _qoe(self, metrics):
@@ -205,8 +206,7 @@ class Client():
         if self.time == -1:
             pass
         elif finalStep:
-            print('SaveData for client %s.' % self.id)
             self.util.clientCsvExport(self.metrics)
-            print('SaveData done for client %s.' % self.id)
+            gym.logger.info('SaveData for client %s.' % self.id)
         else:
             gym.logger.error('Error in saveData() for clients.')
