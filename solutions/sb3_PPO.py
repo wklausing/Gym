@@ -7,29 +7,29 @@ from gymnasium.wrappers import FlattenObservation
 print('Setup environment')
 
 env_name = "gymsabre-v0"
-env = gym.make(env_name, gridSize=100*100, serviceLocations=4, clients=10, saveData=False)
+env = gym.make(env_name, cdnLocations=4, maxActiveClients=10, totalClients=100, saveData=True, render_mode='human')
 env = FlattenObservation(env)
 
-print('Start training')
+# print('Start training')
 
-model = PPO("MlpPolicy", env).learn(total_timesteps=300_000, progress_bar=True)
-model.save("solutions/policies/ppo_gymsabre-v1")
+# model = PPO("MlpPolicy", env).learn(total_timesteps=1_000, progress_bar=True)
+# model.save("solutions/policies/ppo_gymsabre-v1")
 
-print('Finished training')
+# print('Finished training')
 
-print('Start using model')
+# print('Start using model')
 
 model = PPO.load('solutions/policies/ppo_gymsabre-v1', env=env) 
-vec_env = model.get_env()
-obs = vec_env.reset()
+env = model.get_env()
+obs = env.reset()
 for _ in range(1000):
     action, _ = model.predict(obs, deterministic=True)
-    observation, reward, terminated, info = vec_env.step(action)
+    observation, reward, terminated, info = env.step(action)
 
     if terminated:
-        observation = vec_env.reset()
+        observation = env.reset()
 
     print(reward)
 env.close()
 
-print('Finished using model')
+# print('Finished using model')

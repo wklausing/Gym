@@ -153,6 +153,7 @@ class GymSabreEnv(gym.Env):
         money = self.money.item()
         reward = 0
         setManifest = False # Flag to check if a manifest had been set
+        spendMoney = 0
 
         # Add clients
         self.clientAdder(time)
@@ -198,16 +199,15 @@ class GymSabreEnv(gym.Env):
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
             if allClientsHaveManifest and not setManifest:
                 # Buy contigent from CDNs
-                buyContigent = action[:len(self.buyContingent)]
-                for i, cdn in enumerate(self.cdns):
-                    if hasattr(buyContigent[i], 'item'):
-                        money = cdn.sellContigent(money, buyContigent[i].item())
-                    else:
-                        money = cdn.sellContigent(money, buyContigent[i])
+                # buyContigent = action[:len(self.buyContingent)]
+                # for i, cdn in enumerate(self.cdns):
+                #     if hasattr(buyContigent[i], 'item'):
+                #         money = cdn.sellContigent(money, buyContigent[i].item())
+                #     else:
+                #         money = cdn.sellContigent(money, buyContigent[i])
                 
                 for cdn in self.cdns:
-                    cdn.distributeNetworkConditions(time)
-                time += 1
+                    spendMoney += cdn.distributeNetworkConditions(time)
 
                 # Let client do its move
                 metrics = {}
@@ -216,9 +216,10 @@ class GymSabreEnv(gym.Env):
                     pass
                 
                 # Collect information for reward                
-                reward = self.reward(metrics, money)
-                
+                reward = self.reward(metrics, spendMoney)
 
+                time += 1
+                
             self.money = np.array([money], dtype='int')
             self.time = np.array([time], dtype='int')
         
@@ -244,7 +245,8 @@ class GymSabreEnv(gym.Env):
                 reward += 1
             elif metric['status'] == 'abortStreaming':
                 reward -= 10
-        return reward / len(metrics)
+        
+        return (reward / len(metrics)) + money
 
     def render(self, mode="human"):
         if mode == "human":

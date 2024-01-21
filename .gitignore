@@ -7,3 +7,4 @@ solutions/policies/
 data/*json
 data/*csv
 .Rproj.user
+sabreEnv/gymSabre/data/

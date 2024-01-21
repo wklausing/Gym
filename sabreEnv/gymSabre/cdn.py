@@ -61,27 +61,18 @@ class EdgeServer:
         '''
         Here clients receive network conditions.
         '''
-
-        # Check what is needed for clients to proceed
-        for client in self.clients:
-            if client.status in ['missingTrace', 'downloadedSegment', 'init', 'abortedStreaming']:
-                pass
-            elif client.status in ['completed', 'delay']:
-                self.clientsRequiresTrace =- 1
-            else:
-                gym.logger.warn('Unknown status %s for client %s.' % (client.status, client.id))
-                quit()
-
         # Distribute bandwidth
-        clients = [client for client in self.clients if client.status in ['missingTrace', 'downloadedSegment']]
+        clients = [client for client in self.clients if client.status in ['missingTrace', 'downloadedSegment', 'init']]
         for client in clients:
             duration = 1000
             bandwidth = self.bandwidth_kbps / len(clients)
             latency = self._determineLatency(self.location, client.location)
-            if self.deductContigent(duration, bandwidth, latency):
-                client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)
-            else:
-                client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=0, latency_ms=latency)
+            client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)
+        if len(clients) > 0:
+            gym.logger.info('SaveData for cdn %s.' % self.id)
+            return self.price
+        else:
+            return 0
 
     def _determineLatency(self, position1, position2):
         '''
