@@ -69,7 +69,7 @@ class EdgeServer:
             latency = self._determineLatency(self.location, client.location)
             client.provideNetworkCondition(duration_ms=duration, bandwidth_kbps=bandwidth, latency_ms=latency)
         if len(clients) > 0:
-            gym.logger.info('SaveData for cdn %s.' % self.id)
+            gym.logger.info('CP pays %s for using CDN %s.' % (self.price, self.id))
             return self.price
         else:
             return 0

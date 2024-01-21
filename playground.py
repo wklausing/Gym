@@ -1,57 +1,37 @@
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.animation import FuncAnimation
+from sabreEnv import GymSabreEnv, SabreActionWrapper
+import gymnasium as gym
+from stable_baselines3 import PPO
+from gymnasium.wrappers import FlattenObservation
+from stable_baselines3.common.monitor import Monitor
 
-class GymSabreRender:
-    
-    # Update function for animation
-    def update(self, step):
-        # Simulate some movement or changes (this is just an example)
-        self.client_positions[:, 0] += np.random.rand(self.num_clients) * 0.01 - 0.005
-        self.client_positions[:, 1] += np.random.rand(self.num_clients) * 0.01 - 0.005
+print('Setup environment')
 
-        # Update data
-        self.clients.set_offsets(self.client_positions)
-        self.servers.set_offsets(self.server_positions)
-        self.time_text.set_text(f'Time: {step}')
+env_name = "gymsabre-v0"
+env = gym.make(env_name, cdnLocations=4, maxActiveClients=10, totalClients=100, saveData=True, render_mode='human')
+env = Monitor(env, filename='./monitor.csv')
+env = FlattenObservation(env)
 
-        return self.clients, self.servers, self.time_text
 
-    def render(self):
-        # Create animation
-        FuncAnimation(self.fig, self.update, frames=self.num_steps, interval=500, blit=True)
+# print('Start training')
 
-    def init2(self):
-        # Settings
-        self.num_clients = 10
-        self.num_servers = 5
-        self.num_steps = 20  # Total number of time steps
+model = PPO("MlpPolicy", env).learn(total_timesteps=1_000, progress_bar=True)
+model.save("solutions/policies/ppo_gymsabre-v1")
 
-        # Initialize positions
-        self.client_positions = np.random.rand(self.num_clients, 2)
-        self.server_positions = np.random.rand(self.num_servers, 2)
+# print('Finished training')
 
-        # Initialize the plot
-        self.fig, self.ax = plt.subplots()
-        self.clients = self.ax.scatter([], [], color='blue', label='Clients')
-        self.servers = self.ax.scatter([], [], color='red', label='Servers')
-        self.time_text = self.ax.text(0.02, 0.95, '', transform=self.ax.transAxes)
+# print('Start using model')
 
-        # Additional plot settings
-        self.ax.set_xlim(0, 1)
-        self.ax.set_ylim(0, 1)
-        self.ax.set_title('Dynamic Map of Clients and Servers')
-        self.ax.set_xlabel('X Coordinate')
-        self.ax.set_ylabel('Y Coordinate')
-        self.ax.legend()
-        self.ax.grid(True)
-    
-        # Show the animation
-        plt.show()
+# model = PPO.load('solutions/policies/ppo_gymsabre-v1', env=env) 
+# env = model.get_env()
+# obs = env.reset()
+# for _ in range(1000):
+#     action, _ = model.predict(obs, deterministic=True)
+#     observation, reward, terminated, info = env.step(action)
 
-    def __init__(self) -> None:
-        print('Here')
-        self.init2()
+#     if terminated:
+#         observation = env.reset()
 
-if __name__ == "__main__":
-    GymSabreRender()
+#     print(reward)
+# env.close()
+
+# print('Finished using model')
