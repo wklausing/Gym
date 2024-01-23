@@ -35,7 +35,7 @@ class Client():
         self.average_bandwidth = None
 
         # Sabre implementation
-        self.sabre = Sabre(verbose=False)
+        self.sabre = Sabre(verbose=False, max_buffer=25)
         self.status = 'init' 
         self.delay = 0
         self.metrics = []# Includes also step information.
