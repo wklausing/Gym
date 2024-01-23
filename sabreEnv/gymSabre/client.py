@@ -153,13 +153,13 @@ class Client():
             metrics['cdn_id'] = self.cdn.id
             metrics['cdn_location'] = self.cdn.location
             
-        if metrics['status'] == 'completed' or metrics['status'] == 'downloadedSegment':
-            qoe = self._qoe(metrics)
-            metrics['qoe'] = qoe
-            metrics['qoeFlag'] = True
-        else:
-            metrics['qoe'] = 0
-            metrics['qoeFlag'] = False
+        # if metrics['status'] == 'completed' or metrics['status'] == 'downloadedSegment':
+        #     qoe = self._qoe(metrics)
+        #     metrics['qoe'] = qoe
+        #     metrics['qoeFlag'] = True
+        # else:
+        #     metrics['qoe'] = 0
+        #     metrics['qoeFlag'] = False
         self.metrics.append(metrics)
 
         gym.logger.info('Client %s at time %s is currently in state %s.' % (self.id, time, self.status))

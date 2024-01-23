@@ -26,7 +26,7 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, cdnLocations=4, \
-                 maxActiveClients=10, totalClients=100, clientAppearingMode='parabolic',saveData=False, contentSteering=False, \
+                 maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially',saveData=False, contentSteering=False, \
                 ttl=500, maxSteps=1000, manifestLenght=4):
         # Util
         self.util = Util()
@@ -165,11 +165,9 @@ class GymSabreEnv(gym.Env):
         allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
         if allClientsDone:
             print('All clients done.')
-        elif money <= -1_000_000:
-            print('Money is below -1_000_000.')
         elif self.stepCounter >= self.maxSteps:
             print('Maximal step is reached.')
-        terminated = money <= -1_000_000 or self.stepCounter >= self.maxSteps or allClientsDone
+        terminated = self.stepCounter >= self.maxSteps or allClientsDone
 
         if terminated:
             pass
@@ -240,7 +238,7 @@ class GymSabreEnv(gym.Env):
             if metric['status'] == 'completed' or metric['status'] == 'downloadedSegment':
                 reward += 1
             elif metric['status'] == 'abortStreaming':
-                reward -= 10
+                reward -= 10           
         
         return (reward / len(metrics)) + money
 
@@ -274,7 +272,7 @@ class GymSabreEnv(gym.Env):
         
     def _clientAdder(self, time, mode='random'):
         '''
-        Here the appearing of clients is managed. Currently, it is a random process.
+        Here the appearing of clients is managed. Currently, it is a random process, parabolic, or expontially.
         '''
         if mode == 'random':
             if len(self.clients) < self.maxActiveClients and self.totalClients > 0:

@@ -1,6 +1,7 @@
 from sabreEnv.sabre.sabreV6 import BolaEnh, Ewma, Util, Replace, SessionInfo, SlidingWindow, Bola, ThroughputRule, Dynamic, DynamicDash, Bba
 from collections import namedtuple
 import math
+import numpy as np
 
 
 class NetworkModel:
@@ -439,8 +440,11 @@ class Sabre():
 
         self.util.max_buffer_size = max_buffer * 1000
 
+        self.time_average_played_bitrateList = []
+
         self.util.manifest = self.util.load_json(movie)
         bitrates = self.util.manifest['bitrates_kbps']
+        self.bitrates = bitrates
         utility_offset = 0 - math.log(bitrates[0])  # so utilities[0] = 0
         utilities = [math.log(b) + utility_offset for b in bitrates]
         self.util.manifest = self.ManifestInfo(segment_time=self.util.manifest['segment_duration_ms'],
@@ -643,6 +647,25 @@ class Sabre():
         if self.util.verbose:
             print(results_dict)
 
+        self.time_average_played_bitrateList.append(results_dict['time_average_played_bitrate'])
+        quality_std_dev = np.std(self.time_average_played_bitrateList)
+
+        
+
+
+        # Calculate QoE metric
+        if results_dict['total_rebuffer_events'] > 0:
+            first_part = (7/8) * max((math.log(results_dict['total_rebuffer_events']) / 6) + 1, 0)
+        else:
+            first_part = 0 
+        second_part = (1/8) * (min(results_dict['time_average_rebuffer_events'], 15) / 15)
+        F_ij = first_part + second_part
+
+        qoe = 5.67 * results_dict['time_average_played_bitrate'] / self.util.manifest.bitrates[-1] \
+            - 6.72 * quality_std_dev / self.util.manifest.bitrates[-1] + 0.17 - 4.95 * F_ij
+
+        results_dict['qoe'] = qoe
+
         return results_dict
     
     def testing(self, network='sabreEnv/sabre/data/network.json'):
@@ -653,7 +676,7 @@ class Sabre():
         networkLen = len(network_trace)
         i = 0
         while True:
-            print('segment:', self.next_segment)
+            #print('segment:', self.next_segment)
             result = self.downloadSegment()
 
             if result['status'] == 'completed':
@@ -689,4 +712,4 @@ class Sabre():
 
 if __name__ == '__main__':
     sabre = Sabre(verbose=False, abr='bolae', moving_average='sliding', replace='right')
-    sabre.testing(network='sabreEnv/sabre/data/networkTest2.json')
+    sabre.testing(network='sabreEnv/sabre/data/networkTest1.json')
