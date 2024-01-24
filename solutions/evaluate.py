@@ -11,7 +11,7 @@ class Evaluater:
 
     def __init__(self):
         self.env_name = 'gymsabre-v0'
-        self.env = gym.make(self.env_name, cdnLocations=4, maxActiveClients=10, totalClients=100, saveData=True, render_mode='human')
+        self.env = gym.make(self.env_name, cdnLocations=4, maxActiveClients=10, totalClients=10)
         self.env = FlattenObservation(self.env)
 
     def load_latest_model(self, directory='solutions/policies', algorithm='ppo', env_name='gymsabre'):
@@ -37,7 +37,7 @@ class Evaluater:
 
     def evaluate(self, model):
         evaluate = evaluate_policy(model, self.env)
-        print('Evluation result:' + evaluate)
+        print('Evluation result:' + str(evaluate))
 
     def runEnv(self, model, steps=1_000):
         env = model.get_env()
@@ -51,5 +51,5 @@ class Evaluater:
 
 if __name__ == '__main__':
     evaluater = Evaluater()
-    model = evaluater.loadA2C()
+    model = evaluater.loadPPO()
     evaluater.evaluate(model)

@@ -36,6 +36,7 @@ class GymSabreEnv(gym.Env):
         self.episodeCounter = 0
 
         # For rendering
+        self.render_mode = render_mode
         if render_mode == 'human':
             renderData = {
                 'episode': [],
@@ -176,12 +177,13 @@ class GymSabreEnv(gym.Env):
 
         # Saving data
         clients_to_remove = []
-        for client in self.clients:
-            if not client.alive or terminated:
-                client.saveData(finalStep=self.saveData)
-                clients_to_remove.append(client)
-        for cdn in self.cdns:
-            cdn.saveData(time, finalStep=terminated)
+        if self.saveData:            
+            for client in self.clients:
+                if not client.alive or terminated:
+                    client.saveData(finalStep=self.saveData)
+                    clients_to_remove.append(client)
+            for cdn in self.cdns:
+                cdn.saveData(time, finalStep=terminated)
 
         # Remove clients
         for client in clients_to_remove:
@@ -254,8 +256,7 @@ class GymSabreEnv(gym.Env):
         return qoe - money
 
     def render(self, mode="human"):
-        if mode == "human":
-
+        if self.render_mode == "human":
             # Collect data
             for cdn in self.cdns:
                 id = cdn.id

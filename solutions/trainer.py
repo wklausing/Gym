@@ -10,11 +10,11 @@ class Trainer:
     def __init__(self):
         self.current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.env_name = 'gymsabre'
-        self.env = gym.make(self.env_name, cdnLocations=4, maxActiveClients=10, totalClients=100, saveData=True, render_mode='human')
+        self.env = gym.make(self.env_name, cdnLocations=4, maxActiveClients=10, totalClients=10)
         self.env = FlattenObservation(self.env)
 
     def ppoTrainer(self, env, max_steps=10_000):
-        model = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
+        model = PPO('MlpPolicy', env, n_steps=max_steps).learn(total_timesteps=max_steps, progress_bar=True)
         model.save('solutions/policies/ppo_' + self.env_name + '_' + self.current_date)
 
     def a2cTrainer(self, env, max_steps=10_000):
@@ -24,4 +24,4 @@ class Trainer:
 
 if __name__ == '__main__':    
     trainer = Trainer()
-    trainer.a2cTrainer(trainer.env, max_steps=100)
+    trainer.ppoTrainer(trainer.env, max_steps=100)
