@@ -12,8 +12,8 @@ env = FlattenObservation(env)
 
 print('Start training')
 
-# model = A2C("MlpPolicy", env).learn(total_timesteps=10_000, progress_bar=True)
-# model.save("solutions/policies/a2c_gymsabre-v1_31")
+model = A2C("MlpPolicy", env).learn(total_timesteps=10_000, progress_bar=True)
+model.save("solutions/policies/a2c_gymsabre-v1_31")
 
 print('Finished training')
 

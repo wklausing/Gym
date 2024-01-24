@@ -81,7 +81,7 @@ class GymSabreEnv(gym.Env):
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        self.buyContingent = [100] * cdnLocations
+        #self.buyContingent = [100] * cdnLocations
         self.manifest = manifestLenght * [cdnLocations]
         self.action_space = gym.spaces.MultiDiscrete(self.manifest)
 
@@ -237,16 +237,21 @@ class GymSabreEnv(gym.Env):
         - delay: Sabre has a delay, because it buffered enough content already.
         '''
         if len(metrics) == 0: return 0
-        reward = 0
+        qoe = 0
         qoeCount = 0
         for metric in metrics.values():
             if metric['status'] == 'completed' or metric['status'] == 'downloadedSegment':
-                reward += metric['qoe']
+                qoe += metric['qoe']
                 qoeCount += 1
             elif metric['status'] == 'abortStreaming':
-                reward -= 10           
+                qoe -= 10
 
-        return (reward / qoeCount) - money
+        if qoeCount == 0: 
+            qoe = 0
+        else:
+            qoe = qoe / qoeCount
+
+        return qoe - money
 
     def render(self, mode="human"):
         if mode == "human":
