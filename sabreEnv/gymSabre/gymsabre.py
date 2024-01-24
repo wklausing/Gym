@@ -12,7 +12,7 @@ from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit
 from datetime import datetime
 
 from sabreEnv.gymSabre.client import Client
-from sabreEnv.gymSabre.cdn import EdgeServer
+from sabreEnv.gymSabre.cdn import CDN
 from sabreEnv.gymSabre.util import Util
 #from sabreEnv.gymSabre.render import run_dash_app
 
@@ -25,11 +25,29 @@ gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, cdnLocations=4, \
-                 maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially',saveData=False, contentSteering=False, \
-                ttl=500, maxSteps=1000, manifestLenght=4):
+    def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
+                    cdns=4, cdnLocationsFixed=[1], cdnBandwidth=1000, \
+                    maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially', manifestLenght=4, \
+                    contentSteering=False, ttl=500, maxSteps=1000,\
+                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix=''
+                ):
+        
+        # Checking input parameters
+        assert gridWidth > 0, 'gridWidth must be greater than 0.'
+        assert gridHeight > 0, 'gridWidth must be greater than 0.'
+        assert cdns > 0, 'cdns must be greater than 0.'
+        assert len(cdnLocationsFixed) <= cdns, 'cdnLocationsFixed must be smaller or equal to cdns.'
+        assert cdnBandwidth > 0, 'cdnBandwidth must be greater than 0.'
+        assert maxActiveClients > 0, 'maxActiveClients must be greater than 0.'
+        assert totalClients > 0, 'totalClients must be greater than 0.'
+        assert manifestLenght > 0, 'manifestLenght must be greater than 0.'
+        assert maxActiveClients >= totalClients, 'maxActiveClients must be greater or equal to totalClients.'
+        assert ttl >= 0, 'ttl must be greater or equal than 0.'
+        assert maxSteps > 0, 'maxSteps must be greater than 0.'
+
         # Util
-        self.util = Util()
+        self.util = Util(savingPath=savingPath, filePrefix=filePrefix)
+        self.filePrefix = filePrefix
         
         # For recordings
         self.saveData = saveData
@@ -38,18 +56,8 @@ class GymSabreEnv(gym.Env):
         # For rendering
         self.render_mode = render_mode
         if render_mode == 'human':
-            renderData = {
-                'episode': [],
-                'step': [],
-                'id': [],
-                'type': [],
-                'x': [], 
-                'y': [],
-                'x_target': [],
-                'y_target': [],
-                'alive': []
-            }
-            self.renderData = pd.DataFrame(renderData)
+            self.renderData = pd.DataFrame(columns=['episode', 'step', 'id', 'x', 'y', 'x_target', 'y_target', 'alive'])
+            self.cpData = pd.DataFrame(columns=['episode', 'step', 'time', 'reward', 'qoe', 'lostMoney'])
 
         # Env variables
         self.gridWidth = gridWidth
@@ -59,9 +67,10 @@ class GymSabreEnv(gym.Env):
         self.clientAppearingMode = clientAppearingMode
                 
         # CDN variables
-        self.cdnCount = cdnLocations
-        self.cdnLocations = np.ones(cdnLocations, dtype=int)
-        self.cdnPrices = np.ones(cdnLocations, dtype=int)
+        self.cdnCount = cdns
+        self.cdnLocationsFixed = cdnLocationsFixed
+        self.cdnPrices = np.ones(cdns, dtype=int)
+        self.cdnBandwidth = cdnBandwidth
 
         # Client variables
         self.maxActiveClients = maxActiveClients
@@ -74,17 +83,60 @@ class GymSabreEnv(gym.Env):
             {
                 'clientLocation': gym.spaces.Discrete(self.gridSize+1, start=0),
                 'clientsLocations': gym.spaces.MultiDiscrete([self.gridSize+1] * maxActiveClients),
-                'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdnLocations),
-                'cdnPrices': spaces.Box(0, 10, shape=(cdnLocations,), dtype=float),
+                'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdns),
+                'cdnPrices': spaces.Box(0, 10, shape=(cdns,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
                 'money': spaces.Box(0, 100_000, shape=(1,), dtype=int),
             }
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        #self.buyContingent = [100] * cdnLocations
-        self.manifest = manifestLenght * [cdnLocations]
+        self.manifest = manifestLenght * [cdns]
         self.action_space = gym.spaces.MultiDiscrete(self.manifest)
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)# We need the following line to seed self.np_random
+
+        # For recordings
+        self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
+        self.data = []
+        self.util.episodeCounter += 1
+        self.stepCounter = 0
+        self.episodeCounter += 1
+        
+        # Reset env variables
+        self.sumReward = 0
+        self.time = np.array([0], dtype='int')
+        self.newTime = True
+
+        # Reset CP-Agent
+        self.money = np.array([0], dtype='int')
+
+        # Reset CDN servers
+        self.cdnLocationsFixed = np.array(self.cdnLocationsFixed)
+        filtered_fixed_locations = [loc for loc in self.cdnLocationsFixed if 0 <= loc < self.gridSize]
+        remaining_count = self.cdnCount - len(filtered_fixed_locations)
+        if remaining_count > 0:
+            random_locations = self.np_random.integers(0, self.gridSize, size=remaining_count, dtype=int)
+            self.cdnLocations = filtered_fixed_locations + list(random_locations)
+        else:
+            self.cdnLocations = filtered_fixed_locations
+
+        #self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
+        self.cdnPrices = np.round(np.random.uniform(0.02, 0.07, size=self.cdnCount), 2)
+        self.cdns = []
+        for e in range(self.cdnCount):
+            self.cdns.append(CDN(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e], bandwidth_kbps=self.cdnBandwidth))
+
+        # Reset clients
+        self.clients = []
+        self.clientIDs = 0
+        self.totalClients = self.totalClientsReset
+
+        observation = self._get_obs()
+        info = {}
+        
+        return observation, info
 
     def _get_obs(self):
         # Client who receices a manifest. If no client needs a manifest, the clientManifest is the gridSize.
@@ -115,41 +167,6 @@ class GymSabreEnv(gym.Env):
         self.sumReward += reward
         return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward, \
                 'activeClients': self.clients, 'cdnLocations': self.cdnLocations, 'cdnPrices': self.cdnPrices}
-
-    def reset(self, seed=None, options=None):
-        super().reset(seed=seed)# We need the following line to seed self.np_random
-
-        # For recordings
-        self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
-        self.data = []
-        self.util.episodeCounter += 1
-        self.stepCounter = 0
-        self.episodeCounter += 1
-        
-        # Reset env variables
-        self.sumReward = 0
-        self.time = np.array([0], dtype='int')
-        self.newTime = True
-
-        # Reset CP-Agent
-        self.money = np.array([0], dtype='int')
-
-        # Reset CDN servers
-        self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
-        self.cdnPrices = np.round(np.random.uniform(0.02, 0.07, size=self.cdnCount), 2)
-        self.cdns = []
-        for e in range(self.cdnCount):
-            self.cdns.append(EdgeServer(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e]))
-
-        # Reset clients
-        self.clients = []
-        self.clientIDs = 0
-        self.totalClients = self.totalClientsReset
-
-        observation = self._get_obs()
-        info = {}
-        
-        return observation, info
 
     def step(self, action):
         self.stepCounter += 1
@@ -247,31 +264,36 @@ class GymSabreEnv(gym.Env):
                 qoeCount += 1
             elif metric['status'] == 'abortStreaming':
                 qoe -= 10
-
         if qoeCount == 0: 
             qoe = 0
         else:
             qoe = qoe / qoeCount
+        reward = qoe - money
 
-        return qoe - money
+        # Collect data for CP graphs
+        if self.saveData:
+            newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'time': self.time.item(), 'reward': qoe, 'qoe': qoe, 'lostMoney': money}
+            self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
+
+        return reward
 
     def render(self, mode="human"):
         if self.render_mode == "human":
             # Collect data
             for cdn in self.cdns:
                 id = cdn.id
-                x,y = self.get_coordinates(cdn.location, self.gridSize)
+                x,y = self._get_coordinates(cdn.location, self.gridSize)
                 newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id': id, 'type': 'CDN', \
                           'x': x, 'y': y, 'x_target': 0, 'y_target': 0, 'alive': True}
                 self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
 
             for c in self.clients:
                 id = c.id
-                x,y = self.get_coordinates(c.location, self.gridSize)
+                x,y = self._get_coordinates(c.location, self.gridSize)
                 if c.cdn is None:
                     x_target,y_target = x,y
                 else:
-                    x_target,y_target = self.get_coordinates(c.cdn.location, self.gridSize)
+                    x_target,y_target = self._get_coordinates(c.cdn.location, self.gridSize)
                 newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id':id, 'type': 'Client', \
                           'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
                 self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
@@ -279,7 +301,9 @@ class GymSabreEnv(gym.Env):
     def close(self):
         super().close()
         if self.saveData:
+            self.filePrefix
             self.renderData.to_csv('sabreEnv/gymSabre/data/renderData.csv', index=False)
+            self.cpData.to_csv('sabreEnv/gymSabre/data/cpData.csv', index=False)
             gym.logger.info('Data saved to renderData.csv')
         
     def _clientAdder(self, time, mode='random'):
@@ -319,7 +343,7 @@ class GymSabreEnv(gym.Env):
         self.totalClients -= 1
         self.clients.append(c)
 
-    def get_coordinates(self, single_integer, grid_width):
+    def _get_coordinates(self, single_integer, grid_width):
         '''
         Calculates x and y coordinates from a single integer.
         '''
@@ -332,7 +356,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, cdnLocations=10, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, cdns=3, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()

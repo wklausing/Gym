@@ -3,9 +3,9 @@ import numpy as np
 
 import math
 
-class EdgeServer:
+class CDN:
 
-    def __init__(self, util, id, location, price=1, bandwidth_kbps=10000):
+    def __init__(self, util, id, location, price=1.0, bandwidth_kbps=10000):
         self.util = util
 
         self.id = id

@@ -1,11 +1,10 @@
-import sqlite3
 import csv
 import os
 from datetime import datetime
 
 class Util:
 
-    def __init__(self):
+    def __init__(self, savingPath='sabreEnv/gymSabre/data/', filePrefix=''):
         # For CSVs
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # self.clientFilename = 'data/client_' + time + '.csv'
@@ -14,9 +13,9 @@ class Util:
         
         # Remove later
         time = 'test'
-        self.clientFilename = 'sabreEnv/gymSabre/data/client_' + time + '.csv'
-        self.cdnFilename = 'sabreEnv/gymSabre/data/cdn_' + time + '.csv'
-        self.cpFilename = 'sabreEnv/gymSabre/data/cp_' + time + '.csv'
+        self.clientFilename = savingPath + filePrefix + 'client_' + time + '.csv'
+        self.cdnFilename = savingPath + filePrefix + 'cdn_' + time + '.csv'
+        self.cpFilename = savingPath + filePrefix + 'cp_' + time + '.csv'
         
         file_exists = os.path.exists(self.clientFilename)
         if file_exists:
