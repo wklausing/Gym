@@ -26,9 +26,9 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
-                    cdns=4, cdnLocationsFixed=[1], cdnBandwidth=1000, \
+                    cdns=4, cdnLocationsFixed=[], cdnBandwidth=1000, cdnReliable=[100], \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially', manifestLenght=4, \
-                    contentSteering=False, ttl=500, maxSteps=1000,\
+                    contentSteering=False, ttl=500, maxSteps=1000, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix=''
                 ):
         
@@ -38,6 +38,7 @@ class GymSabreEnv(gym.Env):
         assert cdns > 0, 'cdns must be greater than 0.'
         assert len(cdnLocationsFixed) <= cdns, 'cdnLocationsFixed must be smaller or equal to cdns.'
         assert cdnBandwidth > 0, 'cdnBandwidth must be greater than 0.'
+        assert all(0 <= value <= 100 for value in cdnReliable) or not cdnReliable, "List must be empty or contain values between 0 and 100"
         assert maxActiveClients > 0, 'maxActiveClients must be greater than 0.'
         assert totalClients > 0, 'totalClients must be greater than 0.'
         assert manifestLenght > 0, 'manifestLenght must be greater than 0.'
@@ -71,6 +72,7 @@ class GymSabreEnv(gym.Env):
         self.cdnLocationsFixed = cdnLocationsFixed
         self.cdnPrices = np.ones(cdns, dtype=int)
         self.cdnBandwidth = cdnBandwidth
+        self.cdnReliable = cdnReliable
 
         # Client variables
         self.maxActiveClients = maxActiveClients
@@ -95,7 +97,7 @@ class GymSabreEnv(gym.Env):
         self.action_space = gym.spaces.MultiDiscrete(self.manifest)
 
     def reset(self, seed=None, options=None):
-        super().reset(seed=seed)# We need the following line to seed self.np_random
+        super().reset(seed=seed)
 
         # For recordings
         self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
@@ -123,10 +125,11 @@ class GymSabreEnv(gym.Env):
             self.cdnLocations = filtered_fixed_locations
 
         #self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
-        self.cdnPrices = np.round(np.random.uniform(0.02, 0.07, size=self.cdnCount), 2)
+        self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2)
         self.cdns = []
         for e in range(self.cdnCount):
-            self.cdns.append(CDN(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e], bandwidth_kbps=self.cdnBandwidth))
+            reliable = self.cdnReliable[e] if e < len(self.cdnReliable) and e >= 0 else 100
+            self.cdns.append(CDN(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e], bandwidth_kbps=self.cdnBandwidth, reliable=reliable, random=self.np_random))
 
         # Reset clients
         self.clients = []
@@ -137,36 +140,6 @@ class GymSabreEnv(gym.Env):
         info = {}
         
         return observation, info
-
-    def _get_obs(self):
-        # Client who receices a manifest. If no client needs a manifest, the clientManifest is the gridSize.
-        self.obsClientLocation = self.gridSize
-        for client in self.clients:
-            if client.alive and client.needsManifest:
-                self.obsClientLocation = client.location
-
-        # clientsLocations
-        clientsLocations = []
-        for client in self.clients:
-            clientsLocations.append(client.location)
-
-        # Fill clientsLocations with gridSize so that observation space doesn't change
-        while len(clientsLocations) < self.maxActiveClients:
-            clientsLocations.append(self.gridSize)
-
-        return {
-            'clientLocation': np.array(self.obsClientLocation), 
-            'clientsLocations': clientsLocations, 
-            'cdnLocations': self.cdnLocations, 
-            'cdnPrices': self.cdnPrices, 
-            'time': self.time, 
-            'money': self.money
-        }
-
-    def _get_info(self, reward):
-        self.sumReward += reward
-        return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward, \
-                'activeClients': self.clients, 'cdnLocations': self.cdnLocations, 'cdnPrices': self.cdnPrices}
 
     def step(self, action):
         self.stepCounter += 1
@@ -282,18 +255,18 @@ class GymSabreEnv(gym.Env):
             # Collect data
             for cdn in self.cdns:
                 id = cdn.id
-                x,y = self._get_coordinates(cdn.location, self.gridSize)
+                x,y = self._get_coordinates(cdn.location, self.gridWidth)
                 newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id': id, 'type': 'CDN', \
                           'x': x, 'y': y, 'x_target': 0, 'y_target': 0, 'alive': True}
                 self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
 
             for c in self.clients:
                 id = c.id
-                x,y = self._get_coordinates(c.location, self.gridSize)
+                x,y = self._get_coordinates(c.location, self.gridWidth)
                 if c.cdn is None:
                     x_target,y_target = x,y
                 else:
-                    x_target,y_target = self._get_coordinates(c.cdn.location, self.gridSize)
+                    x_target,y_target = self._get_coordinates(c.cdn.location, self.gridWidth)
                 newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id':id, 'type': 'Client', \
                           'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
                 self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
@@ -305,7 +278,37 @@ class GymSabreEnv(gym.Env):
             self.renderData.to_csv('sabreEnv/gymSabre/data/renderData.csv', index=False)
             self.cpData.to_csv('sabreEnv/gymSabre/data/cpData.csv', index=False)
             gym.logger.info('Data saved to renderData.csv')
-        
+    
+    def _get_obs(self):
+        # Client who receices a manifest. If no client needs a manifest, the clientManifest is the gridSize.
+        self.obsClientLocation = self.gridSize
+        for client in self.clients:
+            if client.alive and client.needsManifest:
+                self.obsClientLocation = client.location
+
+        # clientsLocations
+        clientsLocations = []
+        for client in self.clients:
+            clientsLocations.append(client.location)
+
+        # Fill clientsLocations with gridSize so that observation space doesn't change
+        while len(clientsLocations) < self.maxActiveClients:
+            clientsLocations.append(self.gridSize)
+
+        return {
+            'clientLocation': np.array(self.obsClientLocation), 
+            'clientsLocations': clientsLocations, 
+            'cdnLocations': self.cdnLocations, 
+            'cdnPrices': self.cdnPrices, 
+            'time': self.time, 
+            'money': self.money
+        }
+
+    def _get_info(self, reward):
+        self.sumReward += reward
+        return {'money': self.money, 'time': self.time, 'sumReward': self.sumReward, \
+                'activeClients': self.clients, 'cdnLocations': self.cdnLocations, 'cdnPrices': self.cdnPrices}
+
     def _clientAdder(self, time, mode='random'):
         '''
         Here the appearing of clients is managed. Currently, it is a random process, parabolic, or exponentially.
@@ -343,13 +346,12 @@ class GymSabreEnv(gym.Env):
         self.totalClients -= 1
         self.clients.append(c)
 
-    def _get_coordinates(self, single_integer, grid_width):
+    def _get_coordinates(self, single_integer, gridWidth):
         '''
         Calculates x and y coordinates from a single integer.
         '''
-        grid_width = 100 # TODO: Remove this hard coded value
-        x = single_integer % grid_width
-        y = single_integer // grid_width
+        x = single_integer % gridWidth
+        y = single_integer // gridWidth
         return x, y
 
 if __name__ == "__main__":

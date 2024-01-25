@@ -5,7 +5,7 @@ import math
 
 class CDN:
 
-    def __init__(self, util, id, location, price=1.0, bandwidth_kbps=10000):
+    def __init__(self, util, id, location, price=1.0, bandwidth_kbps=10000, reliable=100, random=np.random):
         self.util = util
 
         self.id = id
@@ -16,6 +16,9 @@ class CDN:
         self.currentBandwidth = bandwidth_kbps # Bandwidth for each client
         self.clients = []
         self.money = 0
+
+        self.reliable = reliable
+        self.random = random
 
         self.buffered_data = []
     
@@ -61,6 +64,13 @@ class CDN:
         '''
         Here clients receive network conditions.
         '''
+        
+        # Add reliability feature of CDN
+        random = self.random.integers(1, 100)
+        if random > self.reliable:
+            gym.logger.info('CDN %s has a problem, bandwidth is halved.' % self.id)
+            self.bandwidth_kbps = self.bandwidth_kbps / 2
+
         # Distribute bandwidth
         clients = [client for client in self.clients if client.status in ['missingTrace', 'downloadedSegment', 'init']]
         for client in clients:
