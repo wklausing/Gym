@@ -14,7 +14,7 @@ class Client():
     - abortedStreaming: Sabre has aborted streaming.
     - delay: Sabre has a delay, because it buffered enough content already.
     '''
-    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60):
+    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25):
         self.util = util
         self.id = id
         self.alive = True
@@ -35,7 +35,7 @@ class Client():
         self.average_bandwidth = None
 
         # Sabre implementation
-        self.sabre = Sabre(verbose=False, max_buffer=25)
+        self.sabre = Sabre(verbose=False, max_buffer=bufferSize)
         self.status = 'init' 
         self.delay = 0
         self.metrics = []# Includes also step information.
@@ -179,8 +179,8 @@ class Client():
         Need to evaluate if client wants to switch CDN.
         '''
         if self.average_bandwidth < 200 or self.average_latency > 2000:
+            gym.logger.info('Client %s wants to change CDN because of bad network conditions. (%s,%s)' % (self.id, self.average_bandwidth, self.average_latency))
             self._changeCDN()
-            gym.logger.info('Client %s changed CDN because of bad network conditions.' % self.id)
         
     def _changeCDN(self):
         '''
@@ -191,7 +191,7 @@ class Client():
         self.idxManifest += 1
         if self.idxManifest >= len(self.manifest):
             self.idxManifest -= 1
-            gym.logger.info('Client %s is already at last CDN (id=%s) in manifest.' % (self.id, self.manifest[self.idxManifest]))
+            gym.logger.info('Client %s is already at last CDN (id=%s) in manifest, so it cannot change CDN anymore.' % (self.id, self.manifest[self.idxManifest]))
         else:
             self.cdn.removeClient(self)
             self.cdn = self.cdns[self.manifest[self.idxManifest]]

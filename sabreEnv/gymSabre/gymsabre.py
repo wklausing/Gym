@@ -28,6 +28,7 @@ class GymSabreEnv(gym.Env):
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[], cdnBandwidth=1000, cdnReliable=[100], \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially', manifestLenght=4, \
+                    bufferSize=25, \
                     contentSteering=False, ttl=500, maxSteps=1000, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix=''
                 ):
@@ -45,6 +46,7 @@ class GymSabreEnv(gym.Env):
         assert maxActiveClients >= totalClients, 'maxActiveClients must be greater or equal to totalClients.'
         assert ttl >= 0, 'ttl must be greater or equal than 0.'
         assert maxSteps > 0, 'maxSteps must be greater than 0.'
+        assert bufferSize > 0, 'bufferSize must be greater than 0.'
 
         # Util
         self.util = Util(savingPath=savingPath, filePrefix=filePrefix)
@@ -79,6 +81,7 @@ class GymSabreEnv(gym.Env):
         self.totalClients = self.totalClientsReset = totalClients
         self.contentSteering = contentSteering
         self.ttl = ttl
+        self.bufferSize = bufferSize
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -87,8 +90,7 @@ class GymSabreEnv(gym.Env):
                 'clientsLocations': gym.spaces.MultiDiscrete([self.gridSize+1] * maxActiveClients),
                 'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdns),
                 'cdnPrices': spaces.Box(0, 10, shape=(cdns,), dtype=float),
-                'time': spaces.Box(0, 100_000, shape=(1,), dtype=int),
-                'money': spaces.Box(0, 100_000, shape=(1,), dtype=int),
+                'time': spaces.Box(0, 100_000, shape=(1,), dtype=int)
             }
         )
  
@@ -209,6 +211,7 @@ class GymSabreEnv(gym.Env):
 
                 time += 1
                 self.newTime = True
+                gym.logger.info(f'Time: {time}' + f' Step: {self.stepCounter}')
                 
             self.money = np.array([money], dtype='int')
             self.time = np.array([time], dtype='int')
@@ -300,8 +303,7 @@ class GymSabreEnv(gym.Env):
             'clientsLocations': clientsLocations, 
             'cdnLocations': self.cdnLocations, 
             'cdnPrices': self.cdnPrices, 
-            'time': self.time, 
-            'money': self.money
+            'time': self.time
         }
 
     def _get_info(self, reward):
@@ -341,7 +343,7 @@ class GymSabreEnv(gym.Env):
 
     def _addClient(self):
         c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
-                        contentSteering=self.contentSteering, ttl=self.ttl)
+                        contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize)
         self.clientIDs += 1
         self.totalClients -= 1
         self.clients.append(c)
@@ -364,8 +366,8 @@ if __name__ == "__main__":
     observation, info = env.reset()
 
     for i in range(steps):
-        progress = round(i / steps * 100,0)
-        print('Progress:', progress, '/100')
+        #progress = round(i / steps * 100,0)
+        #print('Progress:', progress, '/100')
 
         action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)

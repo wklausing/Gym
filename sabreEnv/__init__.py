@@ -1,7 +1,7 @@
 
 from sabreEnv.gymSabre.gymsabre import GymSabreEnv
 from sabre.sabreV8 import Sabre
-from sabreEnv.utils.fooBarUtils import FooUtils
+from utils.scenarioMain import Scenarios
 from sabreEnv.wrappers.fooWrapper import SabreActionWrapper
 
 

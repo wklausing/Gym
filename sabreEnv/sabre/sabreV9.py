@@ -2,6 +2,8 @@ from sabreEnv.sabre.sabreV6 import BolaEnh, Ewma, Util, Replace, SessionInfo, Sl
 from collections import namedtuple
 import math
 import numpy as np
+import pandas as pd
+import os
 
 
 class NetworkModel:
@@ -408,8 +410,11 @@ class Sabre():
         replace='none',
         seek=None,
         verbose=False,
-        window_size=[3]
+        window_size=[3],
+        saveMetrics=False
     ):  
+        self.saveMetricsFlag = saveMetrics
+
         self.no_abandon = no_abandon
         self.seek = seek
 
@@ -483,6 +488,9 @@ class Sabre():
             result = self.createMetrics()
             result['download_time'] = 0
             result['status'] = 'completed'
+            if self.util.verbose:
+                print(result)
+            self.saveMetrics(result)
             return result
             
         # Download first segment
@@ -492,7 +500,11 @@ class Sabre():
             self.sizeTEMP = size
 
             download_metric = self.network.downloadNet(size, 0, quality, 0, None)
-            if download_metric == False: return {'status': 'missingTrace', 'size': size}
+            if download_metric == False: 
+                metrics = {'status': 'missingTrace', 'size': size}
+                self.saveMetrics(metrics)
+                return metrics
+                
 
             download_time = download_metric.time - download_metric.time_to_first_bit
             self.util.buffer_contents.append(download_metric.quality)
@@ -517,7 +529,9 @@ class Sabre():
                     if self.util.verbose:
                         print('full buffer delay %d bl=%d' %
                             (full_delay, self.util.get_buffer_level()))
-                    return {'status': 'delay', 'delay': full_delay}
+                    metrics = {'status': 'delay', 'delay': full_delay}
+                    self.saveMetrics(metrics)
+                    return metrics
 
                 if self.abandoned_to_quality == None:
                     (quality, delay) = self.abr.get_quality_delay(self.next_segment)#8, 0
@@ -550,7 +564,9 @@ class Sabre():
                     self.util.deplete_buffer(delay)
                     if self.util.verbose:
                         print('abr delay %d bl=%d' % (delay, self.util.get_buffer_level()))
-                    return {'status': 'delay', 'delay': delay}
+                    metrics = {'status': 'delay', 'delay': delay}
+                    self.saveMetrics(metrics)
+                    return metrics
                     
             else:
                 quality = self.qualityTEMP
@@ -564,7 +580,9 @@ class Sabre():
                                             self.util.get_buffer_level(), check_abandon)
             if download_metric == False: 
                 self.foo = False
-                return {'status': 'missingTrace', 'size': size}
+                metrics = {'status': 'missingTrace', 'size': size}
+                self.saveMetrics(metrics)
+                return metrics
 
             self.util.deplete_buffer(download_metric.time)
 
@@ -617,6 +635,7 @@ class Sabre():
         result = self.createMetrics()
         result['status'] = 'downloadedSegment'
         result['download_time'] = download_time
+        self.saveMetrics(result)
         return result
     
     def createMetrics(self):
@@ -650,9 +669,6 @@ class Sabre():
         self.time_average_played_bitrateList.append(results_dict['time_average_played_bitrate'])
         quality_std_dev = np.std(self.time_average_played_bitrateList)
 
-        
-
-
         # Calculate QoE metric
         if results_dict['total_rebuffer_events'] > 0:
             first_part = (7/8) * max((math.log(results_dict['total_rebuffer_events']) / 6) + 1, 0)
@@ -665,9 +681,20 @@ class Sabre():
             - 6.72 * quality_std_dev / self.util.manifest.bitrates[-1] + 0.17 - 4.95 * F_ij
 
         results_dict['qoe'] = qoe
-
         return results_dict
-    
+
+    def saveMetrics(self, metrics, filename='sabreMetrics.csv'):
+        if self.saveMetricsFlag:
+            # Check if the file exists
+            if os.path.exists(filename):
+                df = pd.read_csv(filename)# Load the existing DataFrame
+            else:
+                df = pd.DataFrame()# Create a new DataFrame if the file does not exist
+            metrics_df = pd.DataFrame([metrics])
+            df = pd.concat([df, metrics_df], ignore_index=True, sort=False)
+            df.fillna(0, inplace=True)
+            df.to_csv(filename, index=False)
+
     def testing(self, network='sabreEnv/sabre/data/network.json'):
         '''
         Runs till everything from manifest is downloaded.
@@ -687,29 +714,8 @@ class Sabre():
                 trace = network_trace[i]
                 self.network.add_network_condition(trace['duration_ms'], trace['bandwidth_kbps'] ,trace['latency_ms'])
                 i += 1
-                if i == networkLen: i = 0   
-
-    def testNetworkTester():
-        '''
-        Testing if download time from testDownload is correct.
-        '''
-        NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency')
-        network_trace = NetworkPeriod(time=100,
-                                bandwidth=5000,
-                                latency=175)
-    
-        network_trace2 = NetworkPeriod(time=1,
-                                    bandwidth=5000,
-                                    latency=75)
-        trace = []
-        trace.append(network_trace2)
-        trace.append(network_trace)
-        trace.append(network_trace2)
-        trace.append(network_trace)
-    
-        time = sabre.network.testDownload(886360, trace)
-        print(time)
+                if i == networkLen: i = 0
 
 if __name__ == '__main__':
-    sabre = Sabre(verbose=False, abr='bolae', moving_average='sliding', replace='right')
+    sabre = Sabre(verbose=True, abr='bolae', moving_average='sliding', replace='right')
     sabre.testing(network='sabreEnv/sabre/data/networkTest1.json')

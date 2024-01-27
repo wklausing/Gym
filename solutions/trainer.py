@@ -10,7 +10,7 @@ class Trainer:
     def __init__(self):
         self.current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.env_name = 'gymsabre'
-        self.env = gym.make(self.env_name, cdnLocations=4, maxActiveClients=10, totalClients=10)
+        self.env = gym.make(self.env_name, cdns=4, maxActiveClients=10, totalClients=10)
         self.env = FlattenObservation(self.env)
 
     def ppoTrainer(self, env, max_steps=10_000):
@@ -24,4 +24,4 @@ class Trainer:
 
 if __name__ == '__main__':    
     trainer = Trainer()
-    trainer.ppoTrainer(trainer.env, max_steps=100)
+    trainer.ppoTrainer(trainer.env, max_steps=1000)
