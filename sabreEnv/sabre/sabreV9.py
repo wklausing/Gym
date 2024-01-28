@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 from sabreEnv.sabre.sabreV6 import BolaEnh, Ewma, Util, Replace, SessionInfo, SlidingWindow, Bola, ThroughputRule, Dynamic, DynamicDash, Bba
 from collections import namedtuple
 import math
@@ -666,19 +667,22 @@ class Sabre():
         if self.util.verbose:
             print(results_dict)
 
-        self.time_average_played_bitrateList.append(results_dict['time_average_played_bitrate'])
-        quality_std_dev = np.std(self.time_average_played_bitrateList)
+        foo = self.next_segment
+        qoe=0
+        if foo > 8:
+            self.time_average_played_bitrateList.append(results_dict['time_average_played_bitrate'])
+            quality_std_dev = np.std(self.time_average_played_bitrateList)
 
-        # Calculate QoE metric
-        if results_dict['total_rebuffer_events'] > 0:
-            first_part = (7/8) * max((math.log(results_dict['total_rebuffer_events']) / 6) + 1, 0)
-        else:
-            first_part = 0 
-        second_part = (1/8) * (min(results_dict['time_average_rebuffer_events'], 15) / 15)
-        F_ij = first_part + second_part
+            # Calculate QoE metric
+            if results_dict['total_rebuffer_events'] > 0:
+                first_part = (7/8) * max((math.log(results_dict['total_rebuffer_events']) / 6) + 1, 0)
+            else:
+                first_part = 0 
+            second_part = (1/8) * (min(results_dict['time_average_rebuffer_events'], 15) / 15)
+            F_ij = first_part + second_part
 
-        qoe = 5.67 * results_dict['time_average_played_bitrate'] / self.util.manifest.bitrates[-1] \
-            - 6.72 * quality_std_dev / self.util.manifest.bitrates[-1] + 0.17 - 4.95 * F_ij
+            qoe = 5.67 * results_dict['time_average_played_bitrate'] / self.util.manifest.bitrates[-1] \
+                - 6.72 * quality_std_dev / self.util.manifest.bitrates[-1] + 0.17 - 4.95 * F_ij
 
         results_dict['qoe'] = qoe
         return results_dict
@@ -716,6 +720,34 @@ class Sabre():
                 i += 1
                 if i == networkLen: i = 0
 
+    def plotData(self):
+        # Load the newly uploaded CSV file
+        latest_file_path = 'sabreMetrics.csv'
+        latest_data = pd.read_csv(latest_file_path)
+
+        # Filter the latest data to include only rows where status is 'downloadedSegment'
+        filtered_latest_data = latest_data[latest_data['status'] == 'downloadedSegment']
+
+        # Plotting QoE and Time Average Score for the latest filtered data
+        plt.figure(figsize=(12, 6))
+
+        # QoE
+        plt.plot(filtered_latest_data['qoe'], label='QoE')
+
+        # Time Average Score
+        plt.plot(filtered_latest_data['time_average_score'], label='Time Average Score')
+
+        # Adding title, labels, and legend
+        plt.title('QoE and Time Average Score for Downloaded Segments (Latest Data)')
+        plt.xlabel('Time (or Sample Number)')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.grid(True)
+
+        plt.show()
+
+
 if __name__ == '__main__':
-    sabre = Sabre(verbose=True, abr='bolae', moving_average='sliding', replace='right')
+    sabre = Sabre(verbose=True, abr='bolae', moving_average='sliding', replace='right', saveMetrics=True)
     sabre.testing(network='sabreEnv/sabre/data/networkTest1.json')
+    sabre.plotData()
