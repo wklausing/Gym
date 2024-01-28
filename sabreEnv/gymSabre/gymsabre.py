@@ -26,10 +26,10 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
-                    cdns=4, cdnLocationsFixed=[], cdnBandwidth=1000, cdnReliable=[100], \
+                    cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially', manifestLenght=4, \
                     bufferSize=25, \
-                    contentSteering=False, ttl=500, maxSteps=1000, \
+                    contentSteering=False, ttl=500, maxSteps=1000, moneyMatters=True, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix=''
                 ):
         
@@ -43,7 +43,7 @@ class GymSabreEnv(gym.Env):
         assert maxActiveClients > 0, 'maxActiveClients must be greater than 0.'
         assert totalClients > 0, 'totalClients must be greater than 0.'
         assert manifestLenght > 0, 'manifestLenght must be greater than 0.'
-        assert maxActiveClients >= totalClients, 'maxActiveClients must be greater or equal to totalClients.'
+        assert maxActiveClients <= totalClients, 'totalClients must be greater or equal to maxActiveClients.'
         assert ttl >= 0, 'ttl must be greater or equal than 0.'
         assert maxSteps > 0, 'maxSteps must be greater than 0.'
         assert bufferSize > 0, 'bufferSize must be greater than 0.'
@@ -51,14 +51,15 @@ class GymSabreEnv(gym.Env):
         # Util
         self.util = Util(savingPath=savingPath, filePrefix=filePrefix)
         self.filePrefix = filePrefix
+        self.savingPath = savingPath
         
         # For recordings
         self.saveData = saveData
         self.episodeCounter = 0
 
         # For rendering
-        self.render_mode = render_mode
-        if render_mode == 'human':
+        self.render_mode = render_mode            
+        if self.saveData:
             self.renderData = pd.DataFrame(columns=['episode', 'step', 'id', 'x', 'y', 'x_target', 'y_target', 'alive'])
             self.cpData = pd.DataFrame(columns=['episode', 'step', 'time', 'reward', 'qoe', 'lostMoney'])
 
@@ -68,6 +69,7 @@ class GymSabreEnv(gym.Env):
         self.gridSize = gridWidth * gridHeight
         self.maxSteps = maxSteps
         self.clientAppearingMode = clientAppearingMode
+        self.moneyMatters = moneyMatters
                 
         # CDN variables
         self.cdnCount = cdns
@@ -102,12 +104,11 @@ class GymSabreEnv(gym.Env):
         super().reset(seed=seed)
 
         # For recordings
-        self.filename = 'data/gymSabre_' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '.json'
         self.data = []
-        self.util.episodeCounter += 1
         self.stepCounter = 0
         self.episodeCounter += 1
-        
+        self.util.episodeCounter = self.episodeCounter
+
         # Reset env variables
         self.sumReward = 0
         self.time = np.array([0], dtype='int')
@@ -244,17 +245,20 @@ class GymSabreEnv(gym.Env):
             qoe = 0
         else:
             qoe = qoe / qoeCount
-        reward = qoe - money
+        reward = qoe
+
+        if self.moneyMatters:
+            reward -= money
 
         # Collect data for CP graphs
         if self.saveData:
-            newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'time': self.time.item(), 'reward': qoe, 'qoe': qoe, 'lostMoney': money}
+            newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'time': self.time.item(), 'reward': reward, 'qoe': qoe, 'lostMoney': money}
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         return reward
 
     def render(self, mode="human"):
-        if self.render_mode == "human":
+        if self.saveData:
             # Collect data
             for cdn in self.cdns:
                 id = cdn.id
@@ -278,10 +282,11 @@ class GymSabreEnv(gym.Env):
         super().close()
         if self.saveData:
             self.filePrefix
-            self.renderData.to_csv('sabreEnv/gymSabre/data/renderData.csv', index=False)
-            self.cpData.to_csv('sabreEnv/gymSabre/data/cpData.csv', index=False)
+            path = self.savingPath + self.filePrefix
+            self.renderData.to_csv(path + 'renderData.csv', index=False)
+            self.cpData.to_csv(path + 'cpData.csv', index=False)
             gym.logger.info('Data saved to renderData.csv')
-    
+
     def _get_obs(self):
         # Client who receices a manifest. If no client needs a manifest, the clientManifest is the gridSize.
         self.obsClientLocation = self.gridSize
@@ -360,7 +365,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, cdns=3, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()

@@ -8,3 +8,4 @@ data/*json
 data/*csv
 .Rproj.user
 sabreEnv/gymSabre/data/
+sabreEnv/utils/data/

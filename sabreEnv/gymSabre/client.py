@@ -82,8 +82,8 @@ class Client():
         if self.network_conditions:
             total_bandwidth = sum(bandwidth for _, bandwidth, _ in self.network_conditions)
             total_latency = sum(latency for _, _, latency in self.network_conditions)
-            self.average_bandwidth = total_bandwidth / len(self.network_conditions)
-            self.average_latency = total_latency / len(self.network_conditions)
+            self.average_bandwidth = round(total_bandwidth / len(self.network_conditions),2)
+            self.average_latency = round(total_latency / len(self.network_conditions),2)
 
     def removeNetworkCondition(self):
         '''
