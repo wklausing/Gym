@@ -140,6 +140,7 @@ class Client():
                     self.alive = False
                     self.cdn.removeClient(self)
                     self.status = 'abortedStreaming'
+                    metrics['status'] = 'abortedStreaming'
             else:
                 self.missingTraceTime = 0
 

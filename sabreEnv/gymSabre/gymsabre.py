@@ -30,7 +30,8 @@ class GymSabreEnv(gym.Env):
                     maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially', manifestLenght=4, \
                     bufferSize=25, \
                     contentSteering=False, ttl=500, maxSteps=1000, moneyMatters=True, \
-                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix=''
+                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
+                    weightQoE=1, weightCost=1, weightAbort=1
                 ):
         
         # Checking input parameters
@@ -69,7 +70,10 @@ class GymSabreEnv(gym.Env):
         self.gridSize = gridWidth * gridHeight
         self.maxSteps = maxSteps
         self.clientAppearingMode = clientAppearingMode
-        self.moneyMatters = moneyMatters
+        self.costsMatters = moneyMatters
+        self.weightQoE = weightQoE
+        self.weightCost = weightCost
+        self.weightAbort = weightAbort
                 
         # CDN variables
         self.cdnCount = cdns
@@ -222,7 +226,7 @@ class GymSabreEnv(gym.Env):
 
         return observation, reward, terminated, False, info
     
-    def reward(self, metrics, money):
+    def reward(self, metrics, cost):
         '''
         Possible returns from Sabre:
         - missingTrace: Sabre does not have enough trace to complete a download.
@@ -233,25 +237,23 @@ class GymSabreEnv(gym.Env):
         '''
         if len(metrics) == 0: return 0
         qoe = 0
-        qoeCount = 0
+        costs = 0
+        abortPenalty = 0
+
         for metric in metrics.values():
             if metric['status'] in ['completed', 'downloadedSegment']:
                 qoe += metric['normalized_qoe']
-                qoeCount += 1
-            elif metric['status'] == 'abortStreaming':
-                qoe -= 10
-        if qoeCount == 0: 
-            qoe = 0
-        else:
-            qoe = qoe / qoeCount
-        reward = qoe
+            elif metric['status'] == 'abortedStreaming':
+                abortPenalty -= 1
 
-        if self.moneyMatters:
-            reward -= self._determineNormalizedPrices(self.cdnPrices, money)
+        if self.costsMatters:
+            costs += self._determineNormalizedPrices(self.cdnPrices, cost)
+
+        reward = qoe * self.weightQoE - costs * self.weightCost - abortPenalty * self.weightAbort
 
         # Collect data for CP graphs
         if self.saveData:
-            newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'time': self.time.item(), 'reward': reward, 'qoe': qoe, 'lostMoney': money}
+            newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'time': self.time.item(), 'reward': reward, 'qoe': qoe, 'lostMoney': cost}
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         return reward
@@ -367,8 +369,8 @@ class GymSabreEnv(gym.Env):
         '''
         max_value = sum(cdnPrices)
         min_value = min(cdnPrices)
-        normalized_value = (price - min_value) / (max_value - min_value)
-        return normalized_value
+        normalizedPrice = (price - min_value) / (max_value - min_value)
+        return normalizedPrice
     
     
 
