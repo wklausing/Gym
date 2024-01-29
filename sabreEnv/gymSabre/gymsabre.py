@@ -36,7 +36,7 @@ class GymSabreEnv(gym.Env):
         # Checking input parameters
         assert gridWidth > 0, 'gridWidth must be greater than 0.'
         assert gridHeight > 0, 'gridWidth must be greater than 0.'
-        assert cdns > 0, 'cdns must be greater than 0.'
+        assert cdns > 1, 'cdns must be greater than 1.'
         assert len(cdnLocationsFixed) <= cdns, 'cdnLocationsFixed must be smaller or equal to cdns.'
         assert cdnBandwidth > 0, 'cdnBandwidth must be greater than 0.'
         assert all(0 <= value <= 100 for value in cdnReliable) or not cdnReliable, "List must be empty or contain values between 0 and 100"
@@ -97,8 +97,7 @@ class GymSabreEnv(gym.Env):
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        self.manifest = manifestLenght * [cdns]
-        self.action_space = gym.spaces.MultiDiscrete(self.manifest)
+        self.action_space = gym.spaces.MultiDiscrete(manifestLenght * [cdns])
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -160,9 +159,9 @@ class GymSabreEnv(gym.Env):
         # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
         allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
         if allClientsDone:
-            print('All clients done.')
+            gym.logger.info('All clients done.')
         elif self.stepCounter >= self.maxSteps:
-            print('Maximal step is reached.')
+            gym.logger.info('Maximal step is reached.')
         terminated = self.stepCounter >= self.maxSteps or allClientsDone
 
         if terminated:
@@ -236,8 +235,8 @@ class GymSabreEnv(gym.Env):
         qoe = 0
         qoeCount = 0
         for metric in metrics.values():
-            if metric['status'] == 'completed' or metric['status'] == 'downloadedSegment':
-                qoe += metric['qoe']
+            if metric['status'] in ['completed', 'downloadedSegment']:
+                qoe += metric['normalized_qoe']
                 qoeCount += 1
             elif metric['status'] == 'abortStreaming':
                 qoe -= 10
@@ -248,7 +247,7 @@ class GymSabreEnv(gym.Env):
         reward = qoe
 
         if self.moneyMatters:
-            reward -= money
+            reward -= self._determineNormalizedPrices(self.cdnPrices, money)
 
         # Collect data for CP graphs
         if self.saveData:
@@ -348,7 +347,8 @@ class GymSabreEnv(gym.Env):
 
     def _addClient(self):
         c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
-                        contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize)
+                        contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
+                              maxActiveClients=self.maxActiveClients)
         self.clientIDs += 1
         self.totalClients -= 1
         self.clients.append(c)
@@ -360,6 +360,17 @@ class GymSabreEnv(gym.Env):
         x = single_integer % gridWidth
         y = single_integer // gridWidth
         return x, y
+
+    def _determineNormalizedPrices(self, cdnPrices, price):
+        '''
+        Determines the normalized prices of the CDNs. Used for reward function.
+        '''
+        max_value = sum(cdnPrices)
+        min_value = min(cdnPrices)
+        normalized_value = (price - min_value) / (max_value - min_value)
+        return normalized_value
+    
+    
 
 if __name__ == "__main__":
     print('### Start ###')

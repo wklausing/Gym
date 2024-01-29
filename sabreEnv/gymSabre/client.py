@@ -14,7 +14,7 @@ class Client():
     - abortedStreaming: Sabre has aborted streaming.
     - delay: Sabre has a delay, because it buffered enough content already.
     '''
-    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25):
+    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25, maxActiveClients=10):
         self.util = util
         self.id = id
         self.alive = True
@@ -28,6 +28,7 @@ class Client():
         self.qoeMeasure = 'bitrate'
         self.manifest = []
         self.missingTraceTime = 0
+        self.maxActiveClients = maxActiveClients
 
         self.network_conditions = deque()
         self.currentBandwidth = 0
@@ -35,10 +36,13 @@ class Client():
         self.average_bandwidth = None
 
         # Sabre implementation
-        self.sabre = Sabre(verbose=False, max_buffer=bufferSize)
+        self.sabre = Sabre(max_buffer=bufferSize)
+        self.bufferSize = bufferSize
         self.status = 'init' 
         self.delay = 0
         self.metrics = []# Includes also step information.
+
+        self._determineNormalizedQoE()
 
     def setManifest(self, manifest):
         '''
@@ -114,8 +118,15 @@ class Client():
 
             # Here QoE will be computed with Sabre metrics. Here different kind of QoE can be defined.
             metrics = self.sabre.downloadSegment()
-            if metrics['status'] == 'completed': 
-                self._setDone()
+            if metrics['status'] == 'completed': self._setDone()
+
+            if metrics['status'] in ['completed', 'downloadedSegment']:
+                score = metrics['time_average_score']
+                normalized_value = (score - self.minQoE) / (self.maxQoE - self.minQoE)
+                metrics['normalized_qoe'] = normalized_value
+                if normalized_value > self.maxQoE:
+                    pass
+                
             self.status = metrics['status']
             
             # Check if client wants to change CDN
@@ -152,14 +163,7 @@ class Client():
         if self.cdn is not None:
             metrics['cdn_id'] = self.cdn.id
             metrics['cdn_location'] = self.cdn.location
-            
-        # if metrics['status'] == 'completed' or metrics['status'] == 'downloadedSegment':
-        #     qoe = self._qoe(metrics)
-        #     metrics['qoe'] = qoe
-        #     metrics['qoeFlag'] = True
-        # else:
-        #     metrics['qoe'] = 0
-        #     metrics['qoeFlag'] = False
+        
         self.metrics.append(metrics)
 
         gym.logger.info('Client %s at time %s is currently in state %s.' % (self.id, time, self.status))
@@ -203,6 +207,27 @@ class Client():
         self.alive = False
         self.cdn.removeClient(self)
 
+    def _determineQoE(self, bandwidth, latency):
+        '''
+        Determines QoE with Sabre for given network conditions. Used to normalize QoE.
+        '''
+        sabre = Sabre(max_buffer=self.bufferSize, movie='sabreEnv/sabre/data/movie_short_10Seg.json')
+        #sabre.network.add_network_condition(duration_ms=99999999, bandwidth_kbps=bandwidth, latency_ms=latency)
+        return sabre.determineQoE(bandwidth, latency)
+    
+    def _determineNormalizedQoE(self):
+        '''
+        Determines the normalized QoE of the clients.
+        '''
+        latencyList = []
+        for cdn in self.cdns:
+            latencyList.append(cdn._determineLatency(cdn.location, self.location))
+        bandwidth = self.cdns[0].bandwidth_kbps
+        sabre = Sabre(max_buffer=self.bufferSize, movie='sabreEnv/sabre/data/movie_short_10Seg.json')
+        self.maxQoE = sabre.determineQoE(bandwidth, min(latencyList))
+        sabre = Sabre(max_buffer=self.bufferSize, movie='sabreEnv/sabre/data/movie_short_10Seg.json')
+        self.minQoE = sabre.determineQoE(bandwidth/self.maxActiveClients, max(latencyList))
+
     def saveData(self, finalStep=False):
         if self.time == -1:
             pass
@@ -211,3 +236,8 @@ class Client():
             gym.logger.info('SaveData for client %s.' % self.id)
         else:
             gym.logger.error('Error in saveData() for clients.')
+
+
+if __name__ == "__main__":
+    client = Client(1, 'test', [1,2,3], None)
+    print(client._determineNormalizedQoE())

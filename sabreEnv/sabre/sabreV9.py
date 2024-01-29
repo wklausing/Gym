@@ -664,12 +664,22 @@ class Sabre():
             'total_reaction_time': self.util.total_reaction_time / 1000,
             'estimate': self.estimate_average,
         }
+
+        foo1= self.util.total_play_time
+        foo2 = self.util.manifest.segment_time
+        to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
+
+        foo3 = self.util.played_utility
+        foo4= self.gamma_p
+        foo5 = self.util.rebuffer_time
+        foofinal = to_time_average * (self.util.played_utility - self.gamma_p * self.util.rebuffer_time / self.util.manifest.segment_time)
+        pass
         if self.util.verbose:
             print(results_dict)
 
         foo = self.next_segment
         qoe=0
-        if foo > 8:
+        if foo > 0:
             self.time_average_played_bitrateList.append(results_dict['time_average_played_bitrate'])
             quality_std_dev = np.std(self.time_average_played_bitrateList)
 
@@ -687,7 +697,7 @@ class Sabre():
         results_dict['qoe'] = qoe
         return results_dict
 
-    def saveMetrics(self, metrics, filename='sabreEnv/sabre/data/visualizationData/sabreMetricsBW1024.csv'):
+    def saveMetrics(self, metrics, filename='sabreEnv/sabre/data/visualizationData/sabreMetrics.csv'):
         if self.saveMetricsFlag:
             # Check if the file exists
             if os.path.exists(filename):
@@ -720,9 +730,25 @@ class Sabre():
                 i += 1
                 if i == networkLen: i = 0
 
+    def determineQoE(self, bandwidth=0, lantency=0, qoe='time_average_score'):
+        '''
+        Runs till everything from manifest is downloaded.
+        '''
+        assert bandwidth > 0 and lantency > 0, 'Bandwidth and Lantency should be greater than 0.'
+        self.network.add_network_condition(999999999999, bandwidth, lantency)
+        i = 0
+        while True:
+            i += 1
+            result = self.downloadSegment()
+            if i > 99999:
+                quit()
+            elif result['status'] == 'completed':
+                break
+        return result[qoe]
+
     def plotData(self):
         # Load the newly uploaded CSV file
-        latest_file_path = 'sabreMetrics.csv'
+        latest_file_path = 'sabreEnv/sabre/data/visualizationData/sabreMetrics.csv'
         latest_data = pd.read_csv(latest_file_path)
 
         # Filter the latest data to include only rows where status is 'downloadedSegment'
@@ -745,7 +771,6 @@ class Sabre():
         plt.grid(True)
 
         plt.show()
-
 
 if __name__ == '__main__':
     sabre = Sabre(verbose=True, abr='bolae', moving_average='sliding', replace='right', saveMetrics=True)

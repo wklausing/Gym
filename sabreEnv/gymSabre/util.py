@@ -49,7 +49,7 @@ class Util:
             writer.writerows(stepData)
 
     def clientCsvExport(self, stepData):
-        allClientKeys = ['id','location','episode','gymTime','qoe','qoeFlag','estimate','manifest','alive',\
+        allClientKeys = ['id','location','episode','gymTime','qoe','normalized_qoe','qoeFlag','estimate','manifest','alive',\
                          'cdn_location', 'cdn_id', 'status','size','download_time',\
                             'total_play_time_chunks','total_play_time','total_played_utility','total_log_bitrate_change',\
                                 'total_reaction_time','time_average_played_utility','time_average_rebuffer_events','time_average_score',\
