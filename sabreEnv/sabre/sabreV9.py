@@ -687,7 +687,7 @@ class Sabre():
         results_dict['qoe'] = qoe
         return results_dict
 
-    def saveMetrics(self, metrics, filename='sabreMetrics.csv'):
+    def saveMetrics(self, metrics, filename='sabreEnv/sabre/data/visualizationData/sabreMetricsBW1024.csv'):
         if self.saveMetricsFlag:
             # Check if the file exists
             if os.path.exists(filename):
