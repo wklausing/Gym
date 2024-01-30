@@ -1301,7 +1301,7 @@ class Sabre():
         gamma_p=5,
         half_life=[3, 8],
         max_buffer=25,
-        movie='sabreEnv/sabre/data/movie.json',
+        movie='sabreEnv/sabre/data/movie_597s.json',
         movie_length=None,
         moving_average=average_default,
         network='sabreEnv/sabre/data/network.json',
