@@ -92,6 +92,7 @@ class CDN:
         position2 = position2 % 100, position2 // 100
         distance = round(math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2), 2) # Euklidean distance
         distance = round(distance * 5, 2)
+        if distance < 1: distance = 1
         return distance
 
     def saveData(self, time, finalStep=False):

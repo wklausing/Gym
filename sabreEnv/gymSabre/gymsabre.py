@@ -27,7 +27,7 @@ class GymSabreEnv(gym.Env):
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], \
-                    maxActiveClients=10, totalClients=100, clientAppearingMode='exponentially', manifestLenght=4, \
+                    maxActiveClients=10, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
                     bufferSize=25, \
                     contentSteering=False, ttl=500, maxSteps=1000, moneyMatters=True, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
@@ -116,6 +116,7 @@ class GymSabreEnv(gym.Env):
         self.sumReward = 0
         self.time = np.array([0], dtype='int')
         self.newTime = True
+        self.enterClientAdderFirstTime = True
 
         # Reset CP-Agent
         self.money = np.array([0], dtype='int')
@@ -324,8 +325,17 @@ class GymSabreEnv(gym.Env):
         if self.totalClients <= 0 or not self.newTime:
             return
         if mode == 'random':
-            if len(self.clients) < self.maxActiveClients and self.totalClients > 0:
-                if self.np_random.integers(1, 10) > 3 or len(self.clients) <= 0:
+            maxClients = self.maxActiveClients-len(self.clients)
+            if self.enterClientAdderFirstTime:
+                self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
+                self.randomClientMinCount = self.np_random.integers(1, self.randomClientCount, dtype=int)
+                for _ in range(self.randomClientCount):
+                    self._addClient()
+                self.enterClientAdderFirstTime = False
+            elif self.randomClientMinCount >= len(self.clients):
+                self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
+                self.randomClientMinCount = self.np_random.integers(1, self.randomClientCount, dtype=int)
+                for _ in range(self.randomClientCount):
                     self._addClient()
         elif mode == 'parabolic':
             # Calculate the number of clients to add based on a parabolic function
@@ -378,25 +388,17 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=100, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=20, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
 
     for i in range(steps):
-        #progress = round(i / steps * 100,0)
-        #print('Progress:', progress, '/100')
-
         action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
             observation, info = env.reset()
-            env.close()
-            exit()
-
-        if i == steps-1:
-            print('All steps done.')
 
     env.close()
     print('### Done ###')

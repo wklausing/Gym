@@ -734,7 +734,8 @@ class Sabre():
         '''
         Runs till everything from manifest is downloaded.
         '''
-        assert bandwidth > 0 and lantency > 0, 'Bandwidth and Lantency should be greater than 0.'
+        assert bandwidth > 0, 'Bandwidth should be greater than 0.'
+        assert lantency > 0, 'Lantency should be greater than 0.'
         self.network.add_network_condition(999999999999, bandwidth, lantency)
         i = 0
         while True:
