@@ -28,7 +28,7 @@ class GymSabreEnv(gym.Env):
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
-                    bufferSize=25, mdpPath='sabreEnv/sabre/data/movie_30s.json', \
+                    bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1000, moneyMatters=True, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
                     weightQoE=1, weightCost=1, weightAbort=1
@@ -88,7 +88,7 @@ class GymSabreEnv(gym.Env):
         self.contentSteering = contentSteering
         self.ttl = ttl
         self.bufferSize = bufferSize
-        self.mdpPath = mdpPath
+        self.mpdPath = mpdPath
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -370,7 +370,7 @@ class GymSabreEnv(gym.Env):
         if self.totalClients <= 0:return
         c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
-                              maxActiveClients=self.maxActiveClients, mpdPath=self.mdpPath)
+                              maxActiveClients=self.maxActiveClients, mpdPath=self.mpdPath)
         self.clientIDs += 1
         self.totalClients -= 1
         self.clients.append(c)

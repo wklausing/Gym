@@ -21,19 +21,19 @@ class Scenarios:
                 observation = env.reset()
         env.close()
 
-    def scenario1(self, max_steps=100_000):
+    def scenario1(self, max_steps=100_000, mpd='sabreEnv/sabre/data/movie_597s.json'):
         '''
         Scenario 1: 4 CDNs with constante 10 clients. Goals is to maximize reward with and without Content Steering.
         All clients fetch the same content. 
         '''
-        envCsOff = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=100, contentSteering=False, TTL=30, \
+        envCsOff = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=100, contentSteering=False, ttl=30, mpdPath=mpd, \
                                cdnLocationsFixed=[3333, 3366, 6633, 6666])
         envCsOff = FlattenObservation(envCsOff)
         modelCsOff = PPO('MlpPolicy', envCsOff).learn(total_timesteps=max_steps, progress_bar=True)
         path = 'sabreEnv/utils/data/sc1/ppo_CsOff/'
         modelPath = path + 'envCsOff_' + self.current_date
         modelCsOff.save(modelPath)
-        envCsOff = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=10, contentSteering=False, TTL=30, \
+        envCsOff = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=10, contentSteering=False, ttl=30, mpdPath=mpd, \
                                saveData=True, savingPath=path, filePrefix='sc1_CS_Off_', \
                                cdnLocationsFixed=[3333, 3366, 6633, 6666])
         envCsOff = FlattenObservation(envCsOff)
@@ -41,14 +41,14 @@ class Scenarios:
         envCsOff = model.get_env()
         self.runEnvi(envCsOff, model, max_steps)
 
-        envCsOn = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=100, contentSteering=True, TTL=30, \
+        envCsOn = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=100, contentSteering=True, ttl=30, mpdPath=mpd, \
                               cdnLocationsFixed=[3333, 3366, 6633, 6666])
         envCsOn = FlattenObservation(envCsOn)
         modelCsOn = PPO('MlpPolicy', envCsOn).learn(total_timesteps=max_steps, progress_bar=True)
         path = 'sabreEnv/utils/data/sc1/ppo_CsOn/'
         modelPath = path + 'envCsOn_' + self.current_date
         modelCsOn.save(modelPath)
-        envCsOn = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=10, contentSteering=False, TTL=30,  \
+        envCsOn = GymSabreEnv(cdns=4, maxActiveClients=10, totalClients=10, contentSteering=False, ttl=30, mpdPath=mpd,  \
                                saveData=True, savingPath=path, filePrefix='sc1_CS_On_', \
                                 cdnLocationsFixed=[3333, 3366, 6633, 6666])
         envCsOn = FlattenObservation(envCsOn)
@@ -93,6 +93,6 @@ class Scenarios:
 
 if __name__ == '__main__':
     scenarios = Scenarios()
-    steps = 10_000
+    steps = 100_000
     scenarios.scenario1(steps)
-    scenarios.scenario2(steps)
+    #scenarios.scenario2(steps)
