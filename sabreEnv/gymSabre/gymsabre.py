@@ -27,7 +27,7 @@ class GymSabreEnv(gym.Env):
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], \
-                    maxActiveClients=10, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
+                    maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
                     bufferSize=25, mdpPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1000, moneyMatters=True, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
@@ -325,7 +325,12 @@ class GymSabreEnv(gym.Env):
         '''
         if self.totalClients <= 0 or not self.newTime:
             return
-        if mode == 'random':
+        
+        if mode == 'constante':
+            if len(self.clients) < self.maxActiveClients and self.totalClients > 0:
+                while len(self.clients) < self.maxActiveClients and self.totalClients >= 0:
+                    self._addClient()
+        elif mode == 'random':
             maxClients = self.maxActiveClients-len(self.clients)
             if self.enterClientAdderFirstTime:
                 self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
