@@ -28,7 +28,7 @@ class GymSabreEnv(gym.Env):
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
-                    bufferSize=25, \
+                    bufferSize=25, mdpPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1000, moneyMatters=True, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
                     weightQoE=1, weightCost=1, weightAbort=1
@@ -88,6 +88,7 @@ class GymSabreEnv(gym.Env):
         self.contentSteering = contentSteering
         self.ttl = ttl
         self.bufferSize = bufferSize
+        self.mdpPath = mdpPath
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -333,7 +334,10 @@ class GymSabreEnv(gym.Env):
                     self._addClient()
                 self.enterClientAdderFirstTime = False
             elif self.randomClientMinCount >= len(self.clients):
-                self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
+                if maxClients > 2:
+                    self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
+                else:
+                    self.randomClientCount = 2
                 self.randomClientMinCount = self.np_random.integers(1, self.randomClientCount, dtype=int)
                 for _ in range(self.randomClientCount):
                     self._addClient()
@@ -358,9 +362,10 @@ class GymSabreEnv(gym.Env):
                 self._addClient()
 
     def _addClient(self):
+        if self.totalClients <= 0:return
         c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
-                              maxActiveClients=self.maxActiveClients)
+                              maxActiveClients=self.maxActiveClients, mpdPath=self.mdpPath)
         self.clientIDs += 1
         self.totalClients -= 1
         self.clients.append(c)
@@ -386,7 +391,7 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    steps = 1_000
+    steps = 100_000
 
     env = GymSabreEnv(render_mode="human", maxActiveClients=20, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)

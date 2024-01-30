@@ -14,7 +14,7 @@ class Client():
     - abortedStreaming: Sabre has aborted streaming.
     - delay: Sabre has a delay, because it buffered enough content already.
     '''
-    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25, maxActiveClients=10):
+    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25, maxActiveClients=10, mpdPath='sabreEnv/sabre/data/movie_30s.json'):
         self.util = util
         self.id = id
         self.alive = True
@@ -36,7 +36,8 @@ class Client():
         self.average_bandwidth = None
 
         # Sabre implementation
-        self.sabre = Sabre(max_buffer=bufferSize)
+        self.sabre = Sabre(max_buffer=bufferSize, movie=mpdPath)
+        self.mpdPath = mpdPath
         self.bufferSize = bufferSize
         self.status = 'init' 
         self.delay = 0
@@ -224,9 +225,9 @@ class Client():
         for cdn in self.cdns:
             latencyList.append(cdn._determineLatency(cdn.location, self.location))
         bandwidth = self.cdns[0].bandwidth_kbps
-        sabre = Sabre(max_buffer=self.bufferSize, movie='sabreEnv/sabre/data/movie_short_10Seg.json')
+        sabre = Sabre(max_buffer=self.bufferSize, movie=self.mpdPath)
         self.maxQoE = sabre.determineQoE(bandwidth, min(latencyList))
-        sabre = Sabre(max_buffer=self.bufferSize, movie='sabreEnv/sabre/data/movie_short_10Seg.json')
+        sabre = Sabre(max_buffer=self.bufferSize, movie=self.mpdPath)
         self.minQoE = sabre.determineQoE(bandwidth/self.maxActiveClients, max(latencyList))
 
     def saveData(self, finalStep=False):
