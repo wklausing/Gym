@@ -118,6 +118,7 @@ class GymSabreEnv(gym.Env):
         self.time = np.array([0], dtype='int')
         self.newTime = True
         self.enterClientAdderFirstTime = True
+        self.setManifestCount = 0
 
         # Reset CP-Agent
         self.money = np.array([0], dtype='int')
@@ -175,13 +176,13 @@ class GymSabreEnv(gym.Env):
 
         # Saving data
         clients_to_remove = []
-        if self.saveData:            
-            for client in self.clients:
-                if not client.alive or terminated:
-                    client.saveData(finalStep=self.saveData)
-                    clients_to_remove.append(client)
-            for cdn in self.cdns:
-                cdn.saveData(time, finalStep=terminated)
+        #if self.saveData:            
+        for client in self.clients:
+            if not client.alive or terminated:
+                client.saveData(finalStep=self.saveData)
+                clients_to_remove.append(client)
+        for cdn in self.cdns:
+            cdn.saveData(time, finalStep=terminated)
 
         # Remove clients
         for client in clients_to_remove:
@@ -192,15 +193,16 @@ class GymSabreEnv(gym.Env):
             pass
         else:
             # Add manifest to client
-            if self.obsClientLocation != self.gridSize:
-                manifest = action
-                for _, client in enumerate(self.clients):
-                    if client.alive and client.needsManifest:
-                        client.setManifest(manifest.tolist())
-                        setManifest = True
-                        break
+            manifest = action
+            for _, client in enumerate(self.clients):
+                if client.alive and client.needsManifest:
+                    client.setManifest(manifest.tolist())
+                    setManifest = True
+                    self.setManifestCount += 1
+                    break
             
             allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
+
             if allClientsHaveManifest and not setManifest:
                 
                 for cdn in self.cdns:
@@ -217,7 +219,6 @@ class GymSabreEnv(gym.Env):
 
                 time += 1
                 self.newTime = True
-                gym.logger.info(f'Time: {time}' + f' Step: {self.stepCounter}')
                 
             self.money = np.array([money], dtype='int')
             self.time = np.array([time], dtype='int')
@@ -226,6 +227,7 @@ class GymSabreEnv(gym.Env):
         info = self._get_info(reward)
         self.render()
 
+        gym.logger.info(f'Time: {time}' + f' Step: {self.stepCounter}')
         return observation, reward, terminated, False, info
     
     def reward(self, metrics, cost):
@@ -328,7 +330,7 @@ class GymSabreEnv(gym.Env):
         
         if mode == 'constante':
             if len(self.clients) < self.maxActiveClients and self.totalClients > 0:
-                while len(self.clients) < self.maxActiveClients and self.totalClients >= 0:
+                while len(self.clients) < self.maxActiveClients and self.totalClients > 0:
                     self._addClient()
         elif mode == 'random':
             maxClients = self.maxActiveClients-len(self.clients)
@@ -367,7 +369,8 @@ class GymSabreEnv(gym.Env):
                 self._addClient()
 
     def _addClient(self):
-        if self.totalClients <= 0:return
+        gym.logger.info('Add client %s', self.clientIDs)
+        if self.totalClients <= 0: return
         c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
                               maxActiveClients=self.maxActiveClients, mpdPath=self.mpdPath)

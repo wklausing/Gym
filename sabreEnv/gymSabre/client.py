@@ -24,6 +24,7 @@ class Client():
         self.cdn = None
         self.needsManifest = True
         self.csActive = contentSteering
+        self.ttlOriginal = ttl
         self.ttl = ttl
         self.qoeMeasure = 'bitrate'
         self.manifest = []
@@ -107,6 +108,9 @@ class Client():
             if self.ttl == 0:
                 gym.logger.info('Client %s aks for new manifest.' % self.id)
                 self.needsManifest = True
+                self.ttl = self.ttlOriginal
+            elif self.ttl < 0:
+                raise ValueError('TTL is negative. This should not happen.')
 
         if self.time == time: # Client already did its move
             metrics = {'status': 'delay', 'delay': self.delay}
@@ -134,9 +138,8 @@ class Client():
             if self.average_bandwidth != None and self.alive: self._evaluateAndSwitchServer()
 
             # Check if client wants to abort streaming
-            if metrics['status'] == 'missingTrace': 
-                self.missingTraceTime += 1
-                if self.missingTraceTime >= 10: 
+            if metrics['status'] == 'downloadedSegment': 
+                if metrics['total_rebuffer'] >= 20: 
                     gym.logger.info('Client %s aborted streaming.' % self.id)
                     self.alive = False
                     self.cdn.removeClient(self)
@@ -231,13 +234,11 @@ class Client():
         self.minQoE = sabre.determineQoE(bandwidth/self.maxActiveClients, max(latencyList))
 
     def saveData(self, finalStep=False):
-        if self.time == -1:
+        if self.time == -1 or finalStep:
             pass
         elif finalStep:
             self.util.clientCsvExport(self.metrics)
             gym.logger.info('SaveData for client %s.' % self.id)
-        else:
-            gym.logger.error('Error in saveData() for clients.')
 
 
 if __name__ == "__main__":
