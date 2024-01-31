@@ -162,8 +162,8 @@ class Scenarios:
         '''
         Scenario 4: 4 CDNs with 10 clients. Goals is to maximize reward, while prices are changing over time.
         '''
-        cdns = 8
-        cdnLocationsFixed=[41583, 41749, 41915, 124583, 124749, 124915, 207583, 207749]
+        cdns = 9
+        cdnLocationsFixed=[41583, 41749, 41915, 124583, 124749, 124915, 207583, 207749, 207915]
         maxActiveClients=16
         totalClients=100
         ttl=30
