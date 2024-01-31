@@ -26,7 +26,7 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
-                    cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], \
+                    cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], shuffelPrice=999999999999, \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, moneyMatters=True, \
@@ -50,7 +50,7 @@ class GymSabreEnv(gym.Env):
         assert bufferSize > 0, 'bufferSize must be greater than 0.'
 
         # Util
-        self.util = Util(savingPath=savingPath, filePrefix=filePrefix)
+        self.util = Util(savingPath=savingPath, filePrefix=filePrefix, gridWidth=gridWidth, gridHeight=gridHeight)
         self.filePrefix = filePrefix
         self.savingPath = savingPath
         
@@ -81,6 +81,7 @@ class GymSabreEnv(gym.Env):
         self.cdnPrices = np.ones(cdns, dtype=int)
         self.cdnBandwidth = cdnBandwidth
         self.cdnReliable = cdnReliable
+        self.shuffelPrice = shuffelPrice
 
         # Client variables
         self.maxActiveClients = maxActiveClients
@@ -162,6 +163,14 @@ class GymSabreEnv(gym.Env):
         # Add clients
         self._clientAdder(time, mode=self.clientAppearingMode)
         self.newTime = False
+
+        # Shuffel prices
+        if self.time > 1 and self.time % self.shuffelPrice == 0:
+            oldPrices = self.cdnPrices
+            self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2)
+            for i, cdn in enumerate(self.cdns):
+                cdn.price = round(self.cdnPrices[i], 2)
+            gym.logger.info(f'Prices shuffeld: {oldPrices} -> {self.cdnPrices}')
 
         # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
         allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
@@ -401,7 +410,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 100_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=20, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()

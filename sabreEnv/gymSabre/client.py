@@ -30,6 +30,7 @@ class Client():
         self.manifest = []
         self.missingTraceTime = 0
         self.maxActiveClients = maxActiveClients
+        self.idxManifest = 0
 
         self.network_conditions = deque()
         self.currentBandwidth = 0
@@ -57,12 +58,19 @@ class Client():
                 unique_list.append(item)
                 seen.add(item)
 
+        if self.manifest: 
+            cdnBefore = self.cdns[self.manifest[self.idxManifest]]
+        else:
+            cdnBefore = None
         self.manifest = unique_list
         self.idxManifest = 0
         self.cdn = self.cdns[self.manifest[self.idxManifest]]
         self.cdn.addClient(self)
         self.needsManifest = False
-        gym.logger.info('Client %s got manifest %s.' % (self.id, self.manifest))
+        if cdnBefore != self.cdn and cdnBefore != None:
+            gym.logger.info('Client %s got steered from CDN %s to %s.' % (self.id, cdnBefore.id, self.cdn.id))
+        else:
+            gym.logger.info('Client %s got new manifest %s.' % (self.id, self.manifest))
 
     def provideNetworkCondition(self, duration_ms, bandwidth_kbps, latency_ms):
         '''
@@ -211,14 +219,6 @@ class Client():
         gym.logger.info('Client %s completed download successfully at time %s.' % (self.id, self.time))
         self.alive = False
         self.cdn.removeClient(self)
-
-    def _determineQoE(self, bandwidth, latency):
-        '''
-        Determines QoE with Sabre for given network conditions. Used to normalize QoE.
-        '''
-        sabre = Sabre(max_buffer=self.bufferSize, movie='sabreEnv/sabre/data/movie_short_10Seg.json')
-        #sabre.network.add_network_condition(duration_ms=99999999, bandwidth_kbps=bandwidth, latency_ms=latency)
-        return sabre.determineQoE(bandwidth, latency)
     
     def _determineNormalizedQoE(self):
         '''

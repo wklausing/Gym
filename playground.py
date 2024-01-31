@@ -8,7 +8,7 @@ from stable_baselines3.common.monitor import Monitor
 
 env_name = "gymsabre-v0"
 env = gym.make(env_name, cdns=4, maxActiveClients=10, totalClients=100)
-# env = Monitor(env, filename='./monitor.csv')
+env = Monitor(env, filename='./monitor.csv')
 env = FlattenObservation(env)
 
 

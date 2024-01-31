@@ -4,13 +4,17 @@ from datetime import datetime
 
 class Util:
 
-    def __init__(self, savingPath='sabreEnv/gymSabre/data/', filePrefix=''):
+    def __init__(self, savingPath='sabreEnv/gymSabre/data/', filePrefix='', gridWidth=100, gridHeight=100):
         # For CSVs
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # self.clientFilename = 'data/client_' + time + '.csv'
         # self.cdnFilename = 'data/cdn_' + time + '.csv'
         # self.cpFilename = 'data/cp_' + time + '.csv'
         
+        self.gridWidth = gridWidth
+        self.gridHeight = gridHeight
+
+
         # Remove later
         time = 'test'
         self.clientFilename = savingPath + filePrefix + 'client_' + time + '.csv'
