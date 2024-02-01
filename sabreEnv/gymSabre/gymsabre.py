@@ -20,7 +20,7 @@ import math
 
 import pandas as pd
 
-gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
+gym.logger.set_level(30) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -31,7 +31,7 @@ class GymSabreEnv(gym.Env):
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='foobar', \
-                    weightQoE=1, weightCost=1, weightAbort=1, discreteActionSpace=True
+                    weightQoE=1, weightCost=1, weightAbort=1, dqnActionSpace=True
                 ):
         
         # Checking input parameters
@@ -73,7 +73,7 @@ class GymSabreEnv(gym.Env):
         self.weightQoE = weightQoE
         self.weightCost = weightCost
         self.weightAbort = weightAbort
-        self.discreteActionSpace = discreteActionSpace
+        self.dqnActionSpace = dqnActionSpace
                 
         # CDN variables
         self.cdnCount = cdns
@@ -103,7 +103,7 @@ class GymSabreEnv(gym.Env):
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        if discreteActionSpace == True:
+        if dqnActionSpace == True:
             self.action_space = gym.spaces.Discrete(int(pow(cdns, manifestLenght)))
         else:
             self.action_space = gym.spaces.MultiDiscrete(manifestLenght * [cdns])
@@ -201,11 +201,11 @@ class GymSabreEnv(gym.Env):
             self.clients.remove(client)
 
         if terminated:
-            print('Termination time:', time)
+            print('Termination time:', time, ' Step:', self.stepCounter)
             pass
         else:
             # Add manifest to client
-            if self.discreteActionSpace:
+            if self.dqnActionSpace:
                 manifest = self.interpret_action(action, 4, self.cdnCount)
             else:
                 manifest = action
@@ -436,9 +436,9 @@ class GymSabreEnv(gym.Env):
 
 if __name__ == "__main__":
     print('### Start ###')
-    steps = 100_000
+    steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=False, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()

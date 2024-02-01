@@ -38,7 +38,7 @@ class Scenarios:
         pathCsOff = path + '/ppo_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
         env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                               cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False)
+                               cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False, dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOff + 'trainCsOff')
         env = FlattenObservation(env)
         modelCsOff = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
@@ -48,7 +48,7 @@ class Scenarios:
         pathCsOn = path + '/ppo_CsOn/'
         modelCsOnPath = pathCsOn + 'policyCsOn'
         env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                              cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False)
+                              cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False, dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOn + 'trainCsOn')
         env = FlattenObservation(env)
         modelCsOn = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
@@ -58,7 +58,7 @@ class Scenarios:
         print('CS Off Evaluating')
         env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
                             cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
-                                saveData=True, savingPath=pathCsOff, filePrefix='')
+                                saveData=True, savingPath=pathCsOff, filePrefix='', dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOff + 'evalCsOff')
         env = FlattenObservation(env)
         model = PPO.load(modelCsOffPath, env=env)
@@ -68,7 +68,7 @@ class Scenarios:
         print('CS On Evaluating')
         env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd,  \
                             cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
-                            saveData=True, savingPath=pathCsOn, filePrefix='')
+                            saveData=True, savingPath=pathCsOn, filePrefix='', dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOn + 'evalCsOn')
         env = FlattenObservation(env)
         model = PPO.load(modelCsOnPath, env=env)        
@@ -91,7 +91,7 @@ class Scenarios:
         print('CS Off Training')
         pathCsOff = path + '/ppo_CsOff/'
         env = GymSabreEnv(bufferSize=buffer, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
-                               ttl=ttl, mpdPath=mpd, cdnLocationsFixed=cdnLocationsFixed)
+                               ttl=ttl, mpdPath=mpd, cdnLocationsFixed=cdnLocationsFixed, dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOff + 'trainMonitor.csv')
         env = FlattenObservation(env)
         modelCsOff = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
@@ -101,7 +101,7 @@ class Scenarios:
         print('CS On Training')
         pathCsOn = path + '/ppo_CsOn/'
         env = GymSabreEnv(bufferSize=buffer, contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                              cdnLocationsFixed=cdnLocationsFixed)
+                              cdnLocationsFixed=cdnLocationsFixed, dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOn + 'trainMonitor.csv')
         env = FlattenObservation(env)
         modelCsOn = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
@@ -112,7 +112,7 @@ class Scenarios:
         print('CS Off Evaluating')
         env = GymSabreEnv(bufferSize=buffer, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
                                ttl=ttl, mpdPath=mpd, cdnLocationsFixed=cdnLocationsFixed, \
-                                saveData=True, savingPath=path, filePrefix='sc2_CS_Off_')
+                                saveData=True, savingPath=path, filePrefix='sc2_CS_Off_', dqnActionSpace=False)
         env = Monitor(env, filename=pathCsOff + 'evalMonitor.csv')
         env = FlattenObservation(env)
         model = PPO.load(modelCsOffPath, env=env)        
@@ -122,7 +122,7 @@ class Scenarios:
         print('CS On Evaluating')
         env = GymSabreEnv(bufferSize=buffer, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd,  \
                                saveData=True, savingPath=path, filePrefix='sc2_CS_On_', \
-                                cdnLocationsFixed=cdnLocationsFixed)
+                                cdnLocationsFixed=cdnLocationsFixed, dqnActionSpace=False)
         env = Monitor(env, filename=path + 'evalMonitor.csv')
         env = FlattenObservation(env)
         model = PPO.load(modelCsOnPath, env=env)        
@@ -150,7 +150,7 @@ class Scenarios:
         modelPath = path + 'envCsOff_' + self.current_date
         env = GymSabreEnv(shuffelPrice=90, contentSteering=True, cdns=cdns, \
                           maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                            gridWidth=500, gridHeight=500)
+                            gridWidth=500, gridHeight=500, dqnActionSpace=False)
         env = Monitor(env, filename=path + 'trainMonitor.csv')
         env = FlattenObservation(env)
         modelCsOff = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
@@ -159,7 +159,7 @@ class Scenarios:
         print('Evaluating - Prices Shuffel')
         env = GymSabreEnv(shuffelPrice=90, contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
                                ttl=ttl, mpdPath=mpd, cdnLocationsFixed=cdnLocationsFixed, \
-                                saveData=True, savingPath=path, filePrefix='')
+                                saveData=True, savingPath=path, filePrefix='', dqnActionSpace=False)
         env = Monitor(env, filename=path + 'evalMonitor.csv')
         env = FlattenObservation(env)
         model = PPO.load(modelPath, env=env)        
