@@ -4,7 +4,7 @@ from datetime import datetime
 
 class Util:
 
-    def __init__(self, savingPath='sabreEnv/gymSabre/data/', filePrefix='', gridWidth=100, gridHeight=100):
+    def __init__(self, saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', gridWidth=100, gridHeight=100):
         
         self.gridWidth = gridWidth
         self.gridHeight = gridHeight
@@ -12,6 +12,8 @@ class Util:
         self.clientFilename = savingPath + filePrefix + 'client.csv'
         self.cdnFilename = savingPath + filePrefix + 'cdn.csv'
         self.cpFilename = savingPath + filePrefix + 'cp.csv'
+
+        self.saveData = saveData
         
         # Shared variables
         self.episodeCounter = 0

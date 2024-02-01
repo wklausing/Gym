@@ -31,7 +31,7 @@ class GymSabreEnv(gym.Env):
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='foobar', \
-                    weightQoE=1, weightCost=1, weightAbort=1
+                    weightQoE=1, weightCost=1, weightAbort=1, discreteActionSpace=True
                 ):
         
         # Checking input parameters
@@ -50,7 +50,7 @@ class GymSabreEnv(gym.Env):
         assert bufferSize > 0, 'bufferSize must be greater than 0.'
 
         # Util
-        self.util = Util(savingPath=savingPath, filePrefix=filePrefix, gridWidth=gridWidth, gridHeight=gridHeight)
+        self.util = Util(saveData=saveData, savingPath=savingPath, filePrefix=filePrefix, gridWidth=gridWidth, gridHeight=gridHeight)
         self.filePrefix = filePrefix
         self.savingPath = savingPath
         
@@ -73,6 +73,7 @@ class GymSabreEnv(gym.Env):
         self.weightQoE = weightQoE
         self.weightCost = weightCost
         self.weightAbort = weightAbort
+        self.discreteActionSpace = discreteActionSpace
                 
         # CDN variables
         self.cdnCount = cdns
@@ -102,7 +103,10 @@ class GymSabreEnv(gym.Env):
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        self.action_space = gym.spaces.MultiDiscrete(manifestLenght * [cdns])
+        if discreteActionSpace == True:
+            self.action_space = gym.spaces.Discrete(int(pow(cdns, manifestLenght)))
+        else:
+            self.action_space = gym.spaces.MultiDiscrete(manifestLenght * [cdns])
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -201,10 +205,13 @@ class GymSabreEnv(gym.Env):
             pass
         else:
             # Add manifest to client
-            manifest = action
+            if self.discreteActionSpace:
+                manifest = self.interpret_action(action, 4, self.cdnCount)
+            else:
+                manifest = action
             for _, client in enumerate(self.clients):
                 if client.alive and client.needsManifest:
-                    client.setManifest(manifest.tolist())
+                    client.setManifest(manifest)
                     setManifest = True
                     self.setManifestCount += 1
                     break
@@ -266,7 +273,12 @@ class GymSabreEnv(gym.Env):
 
         # Collect data for CP graphs
         if self.saveData:
-            newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'time': self.time.item(), 'reward': reward, 'qoe': qoe, 'lostMoney': cost}
+            newRow = {'episode': self.episodeCounter, 
+                      'step': self.stepCounter, 
+                      'time': self.time.item(), 
+                      'reward': reward, 
+                      'qoe': qoe, 
+                      'lostMoney': cost}
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         return reward
@@ -404,6 +416,22 @@ class GymSabreEnv(gym.Env):
         normalizedPrice = (price - min_value) / (max_value - min_value)
         return normalizedPrice
     
+    def interpret_action(self, discrete_action, manifestLength, cdns):
+        """
+        Converts an action from the Discrete space into a list of actions in the MultiDiscrete space.
+
+        :param discrete_action: The action in the Discrete space.
+        :param manifestLength: The number of actions in the MultiDiscrete space.
+        :param cdns: The number of possible values for each action in the MultiDiscrete space.
+        :return: A list of actions in the MultiDiscrete space.
+        """
+        multi_discrete_action = []
+        for _ in range(manifestLength):
+            action = discrete_action % cdns
+            multi_discrete_action.append(action)
+            discrete_action = discrete_action // cdns
+
+        return multi_discrete_action[::-1]
     
 
 if __name__ == "__main__":

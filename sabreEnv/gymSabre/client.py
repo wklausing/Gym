@@ -177,7 +177,8 @@ class Client():
             metrics['cdn_id'] = self.cdn.id
             metrics['cdn_location'] = self.cdn.location
         
-        self.metrics.append(metrics)
+        if self.util.saveData:
+            self.metrics.append(metrics)
 
         gym.logger.info('Client %s at time %s is currently in state %s.' % (self.id, time, self.status))
         return metrics 
@@ -234,11 +235,12 @@ class Client():
         self.minQoE = sabre.determineQoE(bandwidth/self.maxActiveClients, max(latencyList))
 
     def saveData(self, finalStep=False):
-        if self.time == -1 or not finalStep:
-            pass
-        elif finalStep:
-            self.util.clientCsvExport(self.metrics)
-            gym.logger.info('SaveData for client %s.' % self.id)
+        if self.util.saveData: 
+            if self.time == -1 or not finalStep:
+                pass
+            elif finalStep:
+                self.util.clientCsvExport(self.metrics)
+                gym.logger.info('SaveData for client %s.' % self.id)
 
 
 if __name__ == "__main__":

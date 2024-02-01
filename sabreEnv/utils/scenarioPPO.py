@@ -1,6 +1,6 @@
 from sabreEnv import GymSabreEnv
 import gymnasium as gym
-from stable_baselines3 import PPO, A2C
+from stable_baselines3 import PPO
 from gymnasium.wrappers import FlattenObservation
 from stable_baselines3.common.monitor import Monitor
 from datetime import datetime
@@ -22,7 +22,7 @@ class Scenarios:
                 observation = env.reset()
         env.close()
 
-    def scenario1(self, onlyTrain=False, max_steps=100_000, mpd='sabreEnv/sabre/data/movie_597s.json', path='sabreEnv/utils/data/sc1/', weightCost=1):
+    def scenario1(self, max_steps=100_000, mpd='sabreEnv/sabre/data/movie_597s.json', path='sabreEnv/utils/data/sc1/', weightCost=1):
         '''
         Scenario 1 - VOD: 4 CDNs with constante 10 clients. Goals is to maximize reward with and without Content Steering.
         All clients fetch the same content.
@@ -38,7 +38,7 @@ class Scenarios:
         pathCsOff = path + '/ppo_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
         env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                               cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
+                               cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False)
         env = Monitor(env, filename=pathCsOff + 'trainCsOff')
         env = FlattenObservation(env)
         modelCsOff = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
@@ -48,32 +48,32 @@ class Scenarios:
         pathCsOn = path + '/ppo_CsOn/'
         modelCsOnPath = pathCsOn + 'policyCsOn'
         env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                              cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
+                              cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False)
         env = Monitor(env, filename=pathCsOn + 'trainCsOn')
         env = FlattenObservation(env)
         modelCsOn = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
         modelCsOn.save(modelCsOnPath)
 
-        if onlyTrain:
-            print('CS Off Evaluating')
-            env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                                cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
-                                    saveData=True, savingPath=pathCsOff, filePrefix='')
-            env = Monitor(env, filename=pathCsOff + 'evalCsOff')
-            env = FlattenObservation(env)
-            model = PPO.load(modelCsOffPath, env=env)
-            env = model.get_env()
-            self.runEnvi(env, model, max_steps)
 
-            print('CS On Evaluating')
-            env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd,  \
-                                cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
-                                saveData=True, savingPath=pathCsOn, filePrefix='')
-            env = Monitor(env, filename=pathCsOn + 'evalCsOn')
-            env = FlattenObservation(env)
-            model = PPO.load(modelCsOnPath, env=env)        
-            env = model.get_env()
-            self.runEnvi(env, model, max_steps)
+        print('CS Off Evaluating')
+        env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
+                            cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
+                                saveData=True, savingPath=pathCsOff, filePrefix='')
+        env = Monitor(env, filename=pathCsOff + 'evalCsOff')
+        env = FlattenObservation(env)
+        model = PPO.load(modelCsOffPath, env=env)
+        env = model.get_env()
+        self.runEnvi(env, model, max_steps)
+
+        print('CS On Evaluating')
+        env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd,  \
+                            cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
+                            saveData=True, savingPath=pathCsOn, filePrefix='')
+        env = Monitor(env, filename=pathCsOn + 'evalCsOn')
+        env = FlattenObservation(env)
+        model = PPO.load(modelCsOnPath, env=env)        
+        env = model.get_env()
+        self.runEnvi(env, model, max_steps)
 
     def scenario2(self, max_steps=100_000, mpd='sabreEnv/sabre/data/movie_597s.json'):
         '''
@@ -133,7 +133,7 @@ class Scenarios:
         '''
         Scenario 3: 4 CDNs with 10 clients. Goals is to maximize reward without costs considerations. At the end it is compared with a run that considers costs.
         '''
-        self.scenario1(max_steps=1000, mpd='sabreEnv/sabre/data/movie_597s.json', path='sabreEnv/utils/data/sc3/', weightCost=0)
+        self.scenario1(max_steps=max_steps, mpd=mpd, path='sabreEnv/utils/data/sc3/', weightCost=0)
 
     def scenario4(self, max_steps=1000, mpd='sabreEnv/sabre/data/movie_597s.json'):
         '''
@@ -169,7 +169,7 @@ class Scenarios:
 if __name__ == '__main__':
     scenarios = Scenarios()
     steps = 10_000
-    scenarios.scenario1(steps)
-    # scenarios.scenario2(steps)
-    scenarios.scenario3(steps)
-    # scenarios.scenario4(steps)
+    scenarios.scenario1(max_steps=steps)
+    # scenarios.scenario2(max_steps=steps)
+    # scenarios.scenario3(max_steps=steps)
+    # scenarios.scenario4(max_steps=steps)
