@@ -62,7 +62,7 @@ class GymSabreEnv(gym.Env):
         self.render_mode = render_mode            
         if self.saveData:
             self.renderData = pd.DataFrame(columns=['episode', 'step', 'id', 'x', 'y', 'x_target', 'y_target', 'alive'])
-            self.cpData = pd.DataFrame(columns=['episode', 'step', 'time', 'reward', 'qoe', 'lostMoney'])
+            self.cpData = pd.DataFrame(columns=['episode', 'time', 'reward', 'qoe', 'costsNorm', 'costTotal', 'step'])
 
         # Env variables
         self.gridWidth = gridWidth
@@ -282,6 +282,8 @@ class GymSabreEnv(gym.Env):
                       'costsNorm': costsNorm,
                       'costTotal': cost,
                       'step': self.stepCounter}
+            if cost <= 0:
+                pass
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         return reward
@@ -441,7 +443,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=True, contentSteering=False, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
