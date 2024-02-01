@@ -169,7 +169,7 @@ class Scenarios:
 
 if __name__ == '__main__':
     scenarios = Scenarios()
-    steps = 1_000
+    steps = 10_000
     scenarios.scenario1(max_steps=steps)
     # scenarios.scenario2(max_steps=steps)
     # scenarios.scenario3(max_steps=steps)
