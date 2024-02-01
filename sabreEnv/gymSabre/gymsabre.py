@@ -29,8 +29,8 @@ class GymSabreEnv(gym.Env):
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], shuffelPrice=999999999999, \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
-                    contentSteering=False, ttl=500, maxSteps=1_000, costsMatters=True, \
-                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
+                    contentSteering=False, ttl=500, maxSteps=1_000, \
+                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='foobar', \
                     weightQoE=1, weightCost=1, weightAbort=1
                 ):
         
@@ -70,7 +70,6 @@ class GymSabreEnv(gym.Env):
         self.gridSize = gridWidth * gridHeight
         self.maxSteps = maxSteps
         self.clientAppearingMode = clientAppearingMode
-        self.costsMatters = costsMatters
         self.weightQoE = weightQoE
         self.weightCost = weightCost
         self.weightAbort = weightAbort
@@ -256,11 +255,12 @@ class GymSabreEnv(gym.Env):
         for metric in metrics.values():
             if metric['status'] in ['completed', 'downloadedSegment']:
                 qoe += metric['normalized_qoe']
+                if metric['normalized_qoe'] > 1: 
+                    pass
             elif metric['status'] == 'abortedStreaming':
-                abortPenalty -= 1
+                abortPenalty += 3
 
-        if self.costsMatters:
-            costs += self._determineNormalizedPrices(self.cdnPrices, cost)
+        costs += self._determineNormalizedPrices(self.cdnPrices, cost)
 
         reward = qoe * self.weightQoE - costs * self.weightCost - abortPenalty * self.weightAbort
 

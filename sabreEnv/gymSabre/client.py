@@ -234,7 +234,7 @@ class Client():
         self.minQoE = sabre.determineQoE(bandwidth/self.maxActiveClients, max(latencyList))
 
     def saveData(self, finalStep=False):
-        if self.time == -1 or finalStep:
+        if self.time == -1 or not finalStep:
             pass
         elif finalStep:
             self.util.clientCsvExport(self.metrics)

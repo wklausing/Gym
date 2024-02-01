@@ -5,41 +5,13 @@ from datetime import datetime
 class Util:
 
     def __init__(self, savingPath='sabreEnv/gymSabre/data/', filePrefix='', gridWidth=100, gridHeight=100):
-        # For CSVs
-        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # self.clientFilename = 'data/client_' + time + '.csv'
-        # self.cdnFilename = 'data/cdn_' + time + '.csv'
-        # self.cpFilename = 'data/cp_' + time + '.csv'
         
         self.gridWidth = gridWidth
         self.gridHeight = gridHeight
 
-
-        # Remove later
-        time = 'test'
-        self.clientFilename = savingPath + filePrefix + 'client_' + time + '.csv'
-        self.cdnFilename = savingPath + filePrefix + 'cdn_' + time + '.csv'
-        self.cpFilename = savingPath + filePrefix + 'cp_' + time + '.csv'
-        
-        file_exists = os.path.exists(self.clientFilename)
-        if file_exists:
-            os.remove(self.clientFilename)
-            print(f"File {self.clientFilename} has been removed.")
-        else:
-            print(f"File {self.clientFilename} does not exist.")
-        file_exists = os.path.exists(self.cdnFilename)
-        if file_exists:
-            os.remove(self.cdnFilename)
-            print(f"File {self.cdnFilename} has been removed.")
-        else:
-            print(f"File {self.cdnFilename} does not exist.")
-        file_exists = os.path.exists(self.cpFilename)
-        if file_exists:
-            os.remove(self.cpFilename)
-            print(f"File {self.cpFilename} has been removed.")
-        else:
-            print(f"File {self.cpFilename} does not exist.")
-        # Remove later ^
+        self.clientFilename = savingPath + filePrefix + 'client.csv'
+        self.cdnFilename = savingPath + filePrefix + 'cdn.csv'
+        self.cpFilename = savingPath + filePrefix + 'cp.csv'
         
         # Shared variables
         self.episodeCounter = 0
