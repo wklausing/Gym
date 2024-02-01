@@ -267,11 +267,11 @@ class GymSabreEnv(gym.Env):
             elif metric['status'] == 'abortedStreaming':
                 abortPenalty += 3
 
-        costsNorm = -1
+        costsNorm = 0
         costsNorm += self._determineNormalizedPrices(self.cdnPrices, cost)
 
         qoe = qoe / qoeCount if qoeCount > 0 else 0
-        reward = qoe * self.weightQoE - cost * self.weightCost - abortPenalty * self.weightAbort
+        reward = qoe * self.weightQoE - costsNorm * self.weightCost - abortPenalty * self.weightAbort
 
         # Collect data for CP graphs
         if self.saveData:
