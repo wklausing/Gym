@@ -61,8 +61,8 @@ class GymSabreEnv(gym.Env):
         # For rendering
         self.render_mode = render_mode            
         if self.saveData:
-            self.renderData = pd.DataFrame(columns=['episode', 'step', 'id', 'x', 'y', 'x_target', 'y_target', 'alive'])
-            self.cpData = pd.DataFrame(columns=['episode', 'time', 'reward', 'qoe', 'costsNorm', 'costTotal', 'step'])
+            self.renderData = pd.DataFrame()
+            self.cpData = pd.DataFrame()
 
         # Env variables
         self.gridWidth = gridWidth
@@ -122,7 +122,6 @@ class GymSabreEnv(gym.Env):
         self.time = np.array([0], dtype='int')
         self.newTime = True
         self.enterClientAdderFirstTime = True
-        self.setManifestCount = 0
 
         # Reset CP-Agent
         self.money = np.array([0], dtype='int')
@@ -160,83 +159,86 @@ class GymSabreEnv(gym.Env):
         time = self.time.item()
         money = self.money.item()
         reward = 0
-        setManifest = False # Flag to check if a manifest had been set
+        #setManifest = False # Flag to check if a manifest had been set
         spendMoney = 0
         metrics = {}
 
-        # Add clients
-        self._clientAdder(time, mode=self.clientAppearingMode)
-        self.newTime = False
-
-        # Shuffel prices
-        if self.time > 1 and self.time % self.shuffelPrice == 0:
-            oldPrices = self.cdnPrices
-            self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2)
-            for i, cdn in enumerate(self.cdns):
-                cdn.price = round(self.cdnPrices[i], 2)
-            gym.logger.info(f'Prices shuffeld: {oldPrices} -> {self.cdnPrices}')
-
-        # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
-        allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
-        if allClientsDone:
-            gym.logger.info('All clients done.')
-        elif self.stepCounter >= self.maxSteps:
-            gym.logger.info('Maximal step is reached.')
-        terminated = self.stepCounter >= self.maxSteps or allClientsDone
-
-        if terminated:
-            pass
-
-        # Saving data
-        clients_to_remove = []
-        #if self.saveData:            
-        for client in self.clients:
-            if not client.alive or terminated:
-                client.saveData(finalStep=self.saveData)
-                clients_to_remove.append(client)
-        for cdn in self.cdns:
-            cdn.saveData(time, finalStep=terminated)
-
-        # Remove clients
-        for client in clients_to_remove:
-            self.clients.remove(client)
-
-        if terminated:
-            print('Termination time:', time, ' Step:', self.stepCounter)
-            pass
+        # Add manifest to client
+        if self.dqnActionSpace:
+            manifest = self.interpret_action(action, 4, self.cdnCount)
         else:
-            # Add manifest to client
-            if self.dqnActionSpace:
-                manifest = self.interpret_action(action, 4, self.cdnCount)
+            manifest = action
+
+        for client in self.clients:
+            if client.alive and client.needsManifest:
+                client.setManifest(manifest)
+            
+
+        while True:
+            # Add clients
+            self._clientAdder(time, mode=self.clientAppearingMode)
+            self.newTime = False
+
+            # Shuffel prices
+            if self.time > 1 and self.time % self.shuffelPrice == 0:
+                oldPrices = self.cdnPrices
+                self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2)
+                for i, cdn in enumerate(self.cdns):
+                    cdn.price = round(self.cdnPrices[i], 2)
+                gym.logger.info(f'Prices shuffeld: {oldPrices} -> {self.cdnPrices}')
+
+            # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
+            allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
+            if allClientsDone:
+                gym.logger.info('All clients done.')
+            elif self.stepCounter >= self.maxSteps:
+                gym.logger.info('Maximal step is reached.')
+            terminated = self.stepCounter >= self.maxSteps or allClientsDone
+
+            if terminated:
+                pass
+
+            # Saving data
+            clients_to_remove = []
+            #if self.saveData:            
+            for client in self.clients:
+                if not client.alive or terminated:
+                    client.saveData(finalStep=self.saveData)
+                    clients_to_remove.append(client)
+            for cdn in self.cdns:
+                cdn.saveData(time, finalStep=terminated)
+
+            # Remove clients
+            for client in clients_to_remove:
+                self.clients.remove(client)
+
+            if terminated:
+                print('Termination time:', time, ' Step:', self.stepCounter)
+                break
             else:
-                manifest = action
-            for _, client in enumerate(self.clients):
-                if client.alive and client.needsManifest:
-                    client.setManifest(manifest)
-                    setManifest = True
-                    self.setManifestCount += 1
-                    break
-            
-            allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
-
-            if allClientsHaveManifest and not setManifest:
                 
-                for cdn in self.cdns:
-                    spendMoney += cdn.distributeNetworkConditions(time)
+                allClientsHaveManifest = all(client.alive and not client.needsManifest for client in self.clients)
 
-                # Let client do its move
-                for client in self.clients:
-                    metrics[client.id] = client.step(time)
-                    pass
+                if allClientsHaveManifest:
+                    
+                    for cdn in self.cdns:
+                        spendMoney += cdn.distributeNetworkConditions(time)
 
-                time += 1
-                self.newTime = True
-            
-            self.money = np.array([money], dtype='int')
-            self.time = np.array([time], dtype='int')
+                    # Let client do its move
+                    for client in self.clients:
+                        metrics[client.id] = client.step(time)
+                        pass
+
+                    time += 1
+                    self.newTime = True
+                else:
+                    break
+                
+                self.money = np.array([money], dtype='int')
+                self.time = np.array([time], dtype='int')
         
         # Collect information for reward     
-        reward = self.reward(metrics, spendMoney)
+        reward = self.reward(metrics, spendMoney, time)
         observation = self._get_obs()
         info = self._get_info(reward)
         self.render()
@@ -244,7 +246,8 @@ class GymSabreEnv(gym.Env):
         gym.logger.info(f'Time: {time}' + f' Step: {self.stepCounter}')
         return observation, reward, terminated, False, info
     
-    def reward(self, metrics, cost):
+    timeBefore = 0
+    def reward(self, metrics, totalCost, time):
         '''
         Possible returns from Sabre:
         - missingTrace: Sabre does not have enough trace to complete a download.
@@ -265,10 +268,10 @@ class GymSabreEnv(gym.Env):
                 if metric['normalized_qoe'] > 1: 
                     pass
             elif metric['status'] == 'abortedStreaming':
-                abortPenalty += 3
+                abortPenalty += 1
 
-        costsNorm = 0
-        costsNorm += self._determineNormalizedPrices(self.cdnPrices, cost)
+        avgCost = totalCost / (time - self.timeBefore)
+        costsNorm = self._determineNormalizedPrices(self.cdnPrices, avgCost)
 
         qoe = qoe / qoeCount if qoeCount > 0 else 0
         reward = qoe * self.weightQoE - costsNorm * self.weightCost - abortPenalty * self.weightAbort
@@ -276,15 +279,15 @@ class GymSabreEnv(gym.Env):
         # Collect data for CP graphs
         if self.saveData:
             newRow = {'episode': self.episodeCounter, 
-                      'time': self.time.item(), 
+                      'time': time, 
                       'reward': reward, 
                       'qoe': qoe, 
                       'costsNorm': costsNorm,
-                      'costTotal': cost,
+                      'totalCost': totalCost,
                       'step': self.stepCounter}
-            if cost <= 0:
-                pass
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
+
+        self.timeBefore=time
 
         return reward
 
