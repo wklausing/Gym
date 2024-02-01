@@ -29,7 +29,7 @@ class GymSabreEnv(gym.Env):
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], shuffelPrice=999999999999, \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
-                    contentSteering=False, ttl=500, maxSteps=1_000, moneyMatters=True, \
+                    contentSteering=False, ttl=500, maxSteps=1_000, costsMatters=True, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='', \
                     weightQoE=1, weightCost=1, weightAbort=1
                 ):
@@ -70,7 +70,7 @@ class GymSabreEnv(gym.Env):
         self.gridSize = gridWidth * gridHeight
         self.maxSteps = maxSteps
         self.clientAppearingMode = clientAppearingMode
-        self.costsMatters = moneyMatters
+        self.costsMatters = costsMatters
         self.weightQoE = weightQoE
         self.weightCost = weightCost
         self.weightAbort = weightAbort

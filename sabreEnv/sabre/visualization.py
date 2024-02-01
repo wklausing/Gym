@@ -42,19 +42,19 @@ def diffBandwidths():
 def diffLatencies():
     # Load the datasets
     file_paths = [
-        "sabreEnv/sabre/data/visualizationData/sabreMetricsLat64.csv",
-        "sabreEnv/sabre/data/visualizationData/sabreMetricsLat128.csv",
-        "sabreEnv/sabre/data/visualizationData/sabreMetricsLat256.csv",
-        "sabreEnv/sabre/data/visualizationData/sabreMetricsLat512.csv",
-        "sabreEnv/sabre/data/visualizationData/sabreMetricsLat1024.csv"
+        "sabreEnv/sabre/data/visualizationData/sabreMetricsLiveLat64.csv",
+        "sabreEnv/sabre/data/visualizationData/sabreMetricsLiveLat128.csv",
+        "sabreEnv/sabre/data/visualizationData/sabreMetricsLiveLat256.csv",
+        "sabreEnv/sabre/data/visualizationData/sabreMetricsLiveLat512.csv",
+        "sabreEnv/sabre/data/visualizationData/sabreMetricsLiveLat1024.csv"
     ]
     # Store the data from each file along with its bandwidth
     data = []
     for file_path in file_paths:
         df = pd.read_csv(file_path)
-        latency = file_path.split('sabreMetricsLat')[-1].split('.csv')[0]  # Extract bandwidth from filename
+        latency = file_path.split('sabreMetricsLiveLat')[-1].split('.csv')[0]  # Extract bandwidth from filename
         data.append((latency, df))
-
+ 
     # Prepare to plot
     plt.figure(figsize=(12, 6))
 

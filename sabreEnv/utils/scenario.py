@@ -141,7 +141,7 @@ class Scenarios:
         print('Training - Costs Off')
         path = 'sabreEnv/utils/data/sc3/ppo_noCosts/'
         modelPath = path + 'envCsOff_' + self.current_date
-        env = GymSabreEnv(moneyMatters=False, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
+        env = GymSabreEnv(costsMatters=False, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
                                ttl=ttl, mpdPath=mpd, cdnLocationsFixed=cdnLocationsFixed)
         env = Monitor(env, filename=path + 'trainMonitor.csv')
         env = FlattenObservation(env)
@@ -149,7 +149,7 @@ class Scenarios:
         modelCsOff.save(modelPath)
 
         print('Evaluating - Costs Off')
-        env = GymSabreEnv(moneyMatters=False, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
+        env = GymSabreEnv(costsMatters=False, contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, \
                                ttl=ttl, mpdPath=mpd, cdnLocationsFixed=cdnLocationsFixed, \
                                 saveData=True, savingPath=path, filePrefix='')
         env = Monitor(env, filename=path + 'evalMonitor.csv')
