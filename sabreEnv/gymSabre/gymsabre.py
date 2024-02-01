@@ -31,7 +31,7 @@ class GymSabreEnv(gym.Env):
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=1.5, weightCost=1, weightAbort=1, dqnActionSpace=True
+                    weightQoE=2, weightCost=1, weightAbort=1, dqnActionSpace=True
                 ):
         
         # Checking input parameters
@@ -268,7 +268,8 @@ class GymSabreEnv(gym.Env):
             elif metric['status'] == 'abortedStreaming':
                 abortPenalty += 3
 
-        costs += self._determineNormalizedPrices(self.cdnPrices, cost)
+        costsNorm = -1
+        costsNorm += self._determineNormalizedPrices(self.cdnPrices, cost)
 
         qoe = qoe / qoeCount if qoeCount > 0 else 0
         reward = qoe * self.weightQoE - costs * self.weightCost - abortPenalty * self.weightAbort
@@ -276,11 +277,12 @@ class GymSabreEnv(gym.Env):
         # Collect data for CP graphs
         if self.saveData:
             newRow = {'episode': self.episodeCounter, 
-                      'step': self.stepCounter, 
                       'time': self.time.item(), 
                       'reward': reward, 
                       'qoe': qoe, 
-                      'lostMoney': costs}
+                      'costsNorm': costsNorm,
+                      'costTotal': cost,
+                      'step': self.stepCounter}
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         return reward

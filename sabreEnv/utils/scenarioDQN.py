@@ -22,7 +22,7 @@ class Scenarios:
                 observation = env.reset()
         env.close()
 
-    def scenario1(self, onlyTrain=False, max_steps=100_000, mpd='sabreEnv/sabre/data/movie_597s.json', path='sabreEnv/utils/data/sc1/', weightCost=1):
+    def scenario1(self, train=True, max_steps=100_000, mpd='sabreEnv/sabre/data/movie_597s.json', path='sabreEnv/utils/data/sc1/', weightCost=1):
         '''
         Scenario 1 - VOD: 4 CDNs with constante 10 clients. Goals is to maximize reward with and without Content Steering.
         All clients fetch the same content.
@@ -33,28 +33,29 @@ class Scenarios:
         totalClients=100
         ttl=30
         path = path + self.current_date
-
-        print('CS Off Training')
         pathCsOff = path + '/dqn_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
-        env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                               cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
-        env = Monitor(env, filename=pathCsOff + 'trainCsOff')
-        env = FlattenObservation(env)
-        modelCsOff = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
-        modelCsOff.save(modelCsOffPath)
-
-        print('CS On Training')
         pathCsOn = path + '/dqn_CsOn/'
         modelCsOnPath = pathCsOn + 'policyCsOn'
-        env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                              cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
-        env = Monitor(env, filename=pathCsOn + 'trainCsOn')
-        env = FlattenObservation(env)
-        modelCsOn = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
-        modelCsOn.save(modelCsOnPath)
 
-        if onlyTrain:
+        if train:
+            print('CS Off Training')
+            env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
+                                cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
+            env = Monitor(env, filename=pathCsOff + 'trainCsOff')
+            env = FlattenObservation(env)
+            modelCsOff = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
+            modelCsOff.save(modelCsOffPath)
+
+            print('CS On Training')
+            env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
+                                cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
+            env = Monitor(env, filename=pathCsOn + 'trainCsOn')
+            env = FlattenObservation(env)
+            modelCsOn = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
+            modelCsOn.save(modelCsOnPath)
+
+        if not train:
             print('CS Off Evaluating')
             env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
                                 cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
@@ -168,7 +169,7 @@ class Scenarios:
 
 if __name__ == '__main__':
     scenarios = Scenarios()
-    steps = 10_000
+    steps = 1_000
     scenarios.scenario1(max_steps=steps)
     # scenarios.scenario2(max_steps=steps)
     # scenarios.scenario3(max_steps=steps)

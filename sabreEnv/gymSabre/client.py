@@ -196,7 +196,7 @@ class Client():
         '''
         Need to evaluate if client wants to switch CDN.
         '''
-        if self.average_bandwidth < 200 or self.average_latency > 2000:
+        if self.average_bandwidth < 100 or self.average_latency > 3000:
             gym.logger.info('Client %s wants to change CDN because of bad network conditions. (%s,%s)' % (self.id, self.average_bandwidth, self.average_latency))
             self._changeCDN()
         
