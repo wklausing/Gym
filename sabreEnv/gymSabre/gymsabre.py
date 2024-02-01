@@ -256,7 +256,6 @@ class GymSabreEnv(gym.Env):
         if len(metrics) == 0: return 0
         qoe = 0
         qoeCount = 0
-        costs = 0
         abortPenalty = 0
 
         for metric in metrics.values():
@@ -272,7 +271,7 @@ class GymSabreEnv(gym.Env):
         costsNorm += self._determineNormalizedPrices(self.cdnPrices, cost)
 
         qoe = qoe / qoeCount if qoeCount > 0 else 0
-        reward = qoe * self.weightQoE - costs * self.weightCost - abortPenalty * self.weightAbort
+        reward = qoe * self.weightQoE - cost * self.weightCost - abortPenalty * self.weightAbort
 
         # Collect data for CP graphs
         if self.saveData:
