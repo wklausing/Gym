@@ -30,8 +30,8 @@ class GymSabreEnv(gym.Env):
                     maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
-                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='foobar', \
-                    weightQoE=1, weightCost=1, weightAbort=1, dqnActionSpace=True
+                    saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
+                    weightQoE=1.5, weightCost=1, weightAbort=1, dqnActionSpace=True
                 ):
         
         # Checking input parameters
@@ -162,6 +162,7 @@ class GymSabreEnv(gym.Env):
         reward = 0
         setManifest = False # Flag to check if a manifest had been set
         spendMoney = 0
+        metrics = {}
 
         # Add clients
         self._clientAdder(time, mode=self.clientAppearingMode)
@@ -224,20 +225,18 @@ class GymSabreEnv(gym.Env):
                     spendMoney += cdn.distributeNetworkConditions(time)
 
                 # Let client do its move
-                metrics = {}
                 for client in self.clients:
                     metrics[client.id] = client.step(time)
                     pass
-                
-                # Collect information for reward                
-                reward = self.reward(metrics, spendMoney)
 
                 time += 1
                 self.newTime = True
-                
+            
             self.money = np.array([money], dtype='int')
             self.time = np.array([time], dtype='int')
         
+        # Collect information for reward     
+        reward = self.reward(metrics, spendMoney)
         observation = self._get_obs()
         info = self._get_info(reward)
         self.render()
@@ -256,12 +255,14 @@ class GymSabreEnv(gym.Env):
         '''
         if len(metrics) == 0: return 0
         qoe = 0
+        qoeCount = 0
         costs = 0
         abortPenalty = 0
 
         for metric in metrics.values():
             if metric['status'] in ['completed', 'downloadedSegment']:
                 qoe += metric['normalized_qoe']
+                qoeCount += 1
                 if metric['normalized_qoe'] > 1: 
                     pass
             elif metric['status'] == 'abortedStreaming':
@@ -269,6 +270,7 @@ class GymSabreEnv(gym.Env):
 
         costs += self._determineNormalizedPrices(self.cdnPrices, cost)
 
+        qoe = qoe / qoeCount if qoeCount > 0 else 0
         reward = qoe * self.weightQoE - costs * self.weightCost - abortPenalty * self.weightAbort
 
         # Collect data for CP graphs
@@ -278,7 +280,7 @@ class GymSabreEnv(gym.Env):
                       'time': self.time.item(), 
                       'reward': reward, 
                       'qoe': qoe, 
-                      'lostMoney': cost}
+                      'lostMoney': costs}
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         return reward
@@ -438,7 +440,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=False, contentSteering=True, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=True, contentSteering=True, ttl=10, maxSteps=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
