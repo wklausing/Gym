@@ -776,4 +776,4 @@ class Sabre():
 if __name__ == '__main__':
     sabre = Sabre(verbose=True, abr='bolae', moving_average='sliding', replace='right', saveMetrics=True)
     sabre.testing(network='sabreEnv/sabre/data/networkTest1.json')
-    sabre.plotData()
+    # sabre.plotData()

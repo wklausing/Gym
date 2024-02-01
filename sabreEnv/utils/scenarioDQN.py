@@ -32,7 +32,7 @@ class Scenarios:
         maxActiveClients=10
         totalClients=100
         ttl=90
-        path = path + self.current_date
+        path = path + self.current_date#'2024-02-01__19_18'
         pathCsOff = path + '/dqn_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
         pathCsOn = path + '/dqn_CsOn/'
@@ -170,7 +170,7 @@ class Scenarios:
 if __name__ == '__main__':
     scenarios = Scenarios()
     steps = 10_000
-    scenarios.scenario1(max_steps=steps)
+    scenarios.scenario1(max_steps=steps, train=True)
     # scenarios.scenario2(max_steps=steps)
     # scenarios.scenario3(max_steps=steps)
     # scenarios.scenario4(max_steps=steps)

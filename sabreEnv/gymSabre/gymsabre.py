@@ -394,12 +394,19 @@ class GymSabreEnv(gym.Env):
             for _ in range(min(num_new_clients, max_addable_clients)):
                 self._addClient()
 
+    clientLocList = [9613, 6957, 6062, 6137, 2719, 7156, 780, 695, 8348, 6090, 3504, 3718, 6797, 5490, 7633, 3429, 6601, 6678, 9638, 4054]
+    locIndex = 0
     def _addClient(self):
         gym.logger.info('Add client %s', self.clientIDs)
         if self.totalClients <= 0: return
-        c = Client(self.clientIDs, self.np_random.integers(0, self.gridSize), self.cdns, util=self.util, \
+
+        
+        if self.locIndex >= 20: self.locIndex = 0
+        c = Client(self.clientIDs, self.clientLocList[self.locIndex], self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
                               maxActiveClients=self.maxActiveClients, mpdPath=self.mpdPath)
+        self.locIndex += 1
+
         self.clientIDs += 1
         self.totalClients -= 1
         self.clients.append(c)

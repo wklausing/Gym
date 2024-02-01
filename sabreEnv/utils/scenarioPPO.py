@@ -33,9 +33,9 @@ class Scenarios:
         totalClients=100
         ttl=90
         path = path + self.current_date
-        pathCsOff = path + '/dqn_CsOff/'
+        pathCsOff = path + '/ppo_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
-        pathCsOn = path + '/dqn_CsOn/'
+        pathCsOn = path + '/ppo_CsOn/'
         modelCsOnPath = pathCsOn + 'policyCsOn'
 
         if train:
