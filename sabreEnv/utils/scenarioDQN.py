@@ -31,7 +31,7 @@ class Scenarios:
         cdnLocationsFixed=[3333, 3366, 6633, 6666]
         maxActiveClients=10
         totalClients=100
-        ttl=30
+        ttl=90
         path = path + self.current_date
         pathCsOff = path + '/dqn_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'

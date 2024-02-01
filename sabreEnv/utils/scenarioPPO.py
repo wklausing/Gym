@@ -31,7 +31,7 @@ class Scenarios:
         cdnLocationsFixed=[3333, 3366, 6633, 6666]
         maxActiveClients=10
         totalClients=100
-        ttl=30
+        ttl=90
         path = path + self.current_date
         pathCsOff = path + '/dqn_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
@@ -49,15 +49,15 @@ class Scenarios:
             modelCsOff = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
             modelCsOff.save(modelCsOffPath)
 
-        print('CS On Training')
-        pathCsOn = path + '/ppo_CsOn/'
-        modelCsOnPath = pathCsOn + 'policyCsOn'
-        env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                              cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False, dqnActionSpace=False)
-        env = Monitor(env, filename=pathCsOn + 'trainCsOn')
-        env = FlattenObservation(env)
-        modelCsOn = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
-        modelCsOn.save(modelCsOnPath)
+            print('CS On Training')
+            pathCsOn = path + '/ppo_CsOn/'
+            modelCsOnPath = pathCsOn + 'policyCsOn'
+            env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
+                                cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, saveData=False, dqnActionSpace=False)
+            env = Monitor(env, filename=pathCsOn + 'trainCsOn')
+            env = FlattenObservation(env)
+            modelCsOn = PPO('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
+            modelCsOn.save(modelCsOnPath)
 
         if not train:
             print('CS Off Evaluating')
