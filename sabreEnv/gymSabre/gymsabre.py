@@ -95,7 +95,7 @@ class GymSabreEnv(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 'clientLocation': gym.spaces.Discrete(self.gridSize+1, start=0),
-                'cdnsCurrentBandwidth': gym.spaces.MultiDiscrete([cdnBandwidth] * cdns),
+                'cdnsCurrentBandwidth': gym.spaces.MultiDiscrete([cdnBandwidth+1] * cdns),
                 'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdns),
                 'cdnPrices': spaces.Box(0, 10, shape=(cdns,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int)
