@@ -95,7 +95,7 @@ class GymSabreEnv(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 'clientLocation': gym.spaces.Discrete(self.gridSize+1, start=0),
-                'clientsLocations': gym.spaces.MultiDiscrete([self.gridSize+1] * maxActiveClients),
+                'cdnsCurrentBandwidth': gym.spaces.MultiDiscrete([cdnBandwidth] * cdns),
                 'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdns),
                 'cdnPrices': spaces.Box(0, 10, shape=(cdns,), dtype=float),
                 'time': spaces.Box(0, 100_000, shape=(1,), dtype=int)
@@ -290,6 +290,9 @@ class GymSabreEnv(gym.Env):
 
         self.timeBefore=time
 
+        if reward > 20 or reward < -10:
+            pass
+
         return reward
 
     def render(self, mode="human"):
@@ -323,24 +326,27 @@ class GymSabreEnv(gym.Env):
             gym.logger.info('Data saved to renderData.csv')
 
     def _get_obs(self):
-        # Client who receices a manifest. If no client needs a manifest, the clientManifest is the gridSize.
+        # Client who receices a manifest.
         self.obsClientLocation = self.gridSize
         for client in self.clients:
             if client.alive and client.needsManifest:
                 self.obsClientLocation = client.location
 
-        # clientsLocations
-        clientsLocations = []
-        for client in self.clients:
-            clientsLocations.append(client.location)
+        # Clients locations. Fill clientsLocations with gridSize so that observation space doesn't change TODO
+        # clientsLocations = []
+        # for client in self.clients:
+        #     clientsLocations.append(client.location)
+        # while len(clientsLocations) < self.maxActiveClients:
+        #     clientsLocations.append(self.gridSize)
 
-        # Fill clientsLocations with gridSize so that observation space doesn't change
-        while len(clientsLocations) < self.maxActiveClients:
-            clientsLocations.append(self.gridSize)
+        # Take current bandwidth of CDNs into observation space
+        cdnsCurrentBandwidth = []
+        for cdn in self.cdns:
+            cdnsCurrentBandwidth.append(cdn.currentBandwidth)
 
         return {
             'clientLocation': np.array(self.obsClientLocation), 
-            'clientsLocations': clientsLocations, 
+            'cdnsCurrentBandwidth': cdnsCurrentBandwidth, 
             'cdnLocations': self.cdnLocations, 
             'cdnPrices': self.cdnPrices, 
             'time': self.time

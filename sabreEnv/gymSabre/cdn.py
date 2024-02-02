@@ -11,7 +11,7 @@ class CDN:
         self.id = id
         self.location = location
         self.price = price
-        self.contigent = 0# In bits
+        self.contigent = 0 # In bits
         self.bandwidth_kbps = bandwidth_kbps
         self.currentBandwidth = bandwidth_kbps # Bandwidth for each client
         self.clients = []
@@ -57,7 +57,12 @@ class CDN:
     
     @property
     def bandwidth(self):
+        pass
         return self.bandwidth_kbps
+    
+    @property
+    def normBandwidth(self):
+        return self.currentBandwidth / self.bandwidth_kbps
     
     clientsStatus = {}
     def distributeNetworkConditions(self, time):

@@ -32,20 +32,20 @@ class Scenarios:
         maxActiveClients=10
         totalClients=100
         ttl=90
-        path = path + self.current_date#'2024-02-01__19_18'
+        path = path + '2024-02-02__00_07'# self.current_date
         pathCsOff = path + '/dqn_CsOff/'
         modelCsOffPath = pathCsOff + 'policyCsOff'
         pathCsOn = path + '/dqn_CsOn/'
         modelCsOnPath = pathCsOn + 'policyCsOn'
 
         if train:
-            print('CS Off Training')
-            env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
-                                cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
-            env = Monitor(env, filename=pathCsOff + 'trainCsOff')
-            env = FlattenObservation(env)
-            modelCsOff = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
-            modelCsOff.save(modelCsOffPath)
+            # print('CS Off Training')
+            # env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
+            #                     cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost)
+            # env = Monitor(env, filename=pathCsOff + 'trainCsOff')
+            # env = FlattenObservation(env)
+            # modelCsOff = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
+            # modelCsOff.save(modelCsOffPath)
 
             print('CS On Training')
             env = GymSabreEnv(contentSteering=True, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
@@ -55,8 +55,9 @@ class Scenarios:
             modelCsOn = DQN('MlpPolicy', env).learn(total_timesteps=max_steps, progress_bar=True)
             modelCsOn.save(modelCsOnPath)
 
-        if not train:
+        if not train or True:
             print('CS Off Evaluating')
+            max_steps = 1000
             env = GymSabreEnv(contentSteering=False, cdns=cdns, maxActiveClients=maxActiveClients, totalClients=totalClients, ttl=ttl, mpdPath=mpd, \
                                 cdnLocationsFixed=cdnLocationsFixed, weightCost=weightCost, \
                                     saveData=True, savingPath=pathCsOff, filePrefix='')
@@ -169,7 +170,7 @@ class Scenarios:
 
 if __name__ == '__main__':
     scenarios = Scenarios()
-    steps = 10_000
+    steps = 50_000
     scenarios.scenario1(max_steps=steps, train=True)
     # scenarios.scenario2(max_steps=steps)
     # scenarios.scenario3(max_steps=steps)
