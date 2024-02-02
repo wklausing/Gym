@@ -173,7 +173,7 @@ class GymSabreEnv(gym.Env):
             if client.alive and client.needsManifest:
                 client.setManifest(manifest)
             
-
+        metricsCount = 0
         while True:
             # Add clients
             self._clientAdder(time, mode=self.clientAppearingMode)
@@ -226,7 +226,8 @@ class GymSabreEnv(gym.Env):
 
                     # Let client do its move
                     for client in self.clients:
-                        metrics[client.id] = client.step(time)
+                        metrics[metricsCount] = client.step(time)
+                        metricsCount += 1
                         pass
 
                     time += 1
@@ -257,13 +258,13 @@ class GymSabreEnv(gym.Env):
         - delay: Sabre has a delay, because it buffered enough content already.
         '''
         if len(metrics) == 0: return 0
-        qoe = 0
+        qoeNorm = 0
         qoeCount = 0
         abortPenalty = 0
 
         for metric in metrics.values():
             if metric['status'] in ['completed', 'downloadedSegment']:
-                qoe += metric['normalized_qoe']
+                qoeNorm += metric['normalized_qoe']
                 qoeCount += 1
                 if metric['normalized_qoe'] > 1: 
                     pass
@@ -273,15 +274,15 @@ class GymSabreEnv(gym.Env):
         avgCost = totalCost / (time - self.timeBefore)
         costsNorm = self._determineNormalizedPrices(self.cdnPrices, avgCost)
 
-        qoe = qoe / qoeCount if qoeCount > 0 else 0
-        reward = qoe * self.weightQoE - costsNorm * self.weightCost - abortPenalty * self.weightAbort
+        qoeNorm = qoeNorm / qoeCount if qoeCount > 0 else 0
+        reward = qoeNorm * self.weightQoE - costsNorm * self.weightCost - abortPenalty * self.weightAbort
 
         # Collect data for CP graphs
         if self.saveData:
             newRow = {'episode': self.episodeCounter, 
                       'time': time, 
                       'reward': reward, 
-                      'qoe': qoe, 
+                      'qoeNorm': qoeNorm, 
                       'costsNorm': costsNorm,
                       'totalCost': totalCost,
                       'step': self.stepCounter}
