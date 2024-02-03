@@ -34,7 +34,7 @@ if __name__ == '__main__':
         'cdns': 4,
         'maxActiveClients': 10,
         'totalClients': 100,
-        'mpdPath': 'sabreEnv/sabre/data/movie_300s.json',
+        'mpdPath': 'sabreEnv/sabre/data/movie_150s.json',
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
         'discreteActionSpace': True
     }
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         'maxActiveClients': 10,
         'totalClients': 100,
         'ttl': 30,
-        'mpdPath': 'sabreEnv/sabre/data/movie_300s.json',
+        'mpdPath': 'sabreEnv/sabre/data/movie_150s.json',
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
         'discreteActionSpace': True
     }
@@ -61,7 +61,7 @@ if __name__ == '__main__':
             if load:
                 model = PPO.load('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
             else:
-                model = PPO('MultiInputPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
+                model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
             model.save('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
 
         # CS On
@@ -70,7 +70,7 @@ if __name__ == '__main__':
             if load:
                 model = PPO.load('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
             else:
-                model = PPO('MultiInputPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
+                model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
             model.save('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOn_' + str(timesteps))
 
         train(argsCsOff, timesteps, load=load)
