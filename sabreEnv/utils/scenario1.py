@@ -34,9 +34,10 @@ if __name__ == '__main__':
         'cdns': 4,
         'maxActiveClients': 10,
         'totalClients': 100,
-        'mpdPath': 'sabreEnv/sabre/data/movie_150s.json',
+        'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
-        'discreteActionSpace': True
+        'discreteActionSpace': True,
+        'bufferSize': 10
     }
 
     argsCsOn = {
@@ -45,9 +46,10 @@ if __name__ == '__main__':
         'maxActiveClients': 10,
         'totalClients': 100,
         'ttl': 30,
-        'mpdPath': 'sabreEnv/sabre/data/movie_150s.json',
+        'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
-        'discreteActionSpace': True
+        'discreteActionSpace': True,
+        'bufferSize': 10
     }
 
     total_timesteps = 0
