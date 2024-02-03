@@ -101,9 +101,8 @@ class CDN:
         return distance
 
     def saveData(self, time, finalStep=False):
-        if self.util.saveData == False: 
-            return
-        if time == 0: return
+        if time == 0 or self.util.saveData == False: return
+            
         client_ids = [client.id for client in self.clients]
         self.buffered_data.append([self.util.episodeCounter, time, self.id, len(client_ids), np.array(client_ids), self.bandwidth_kbps, \
                                    self.currentBandwidth, self.price, self.money, self.contigent])

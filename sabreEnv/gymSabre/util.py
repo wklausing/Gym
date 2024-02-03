@@ -1,6 +1,7 @@
 import csv
 import os
 import json
+import pandas as pd
 
 class Util:
 
@@ -27,18 +28,15 @@ class Util:
             writer.writerows(stepData)
 
     def clientCsvExport(self, stepData):
-        allClientKeys = ['id','location','episode','gymTime','qoe','normalized_qoe','qoeFlag','estimate','manifest','alive',\
-                         'cdn_location', 'cdn_id', 'status','size','download_time',\
-                            'total_play_time_chunks','total_play_time','total_played_utility','total_log_bitrate_change',\
-                                'total_reaction_time','time_average_played_utility','time_average_rebuffer_events','time_average_score',\
-                                    'buffer_size','total_rebuffer_events','time_average_played_bitrate','time_average_log_bitrate_change',\
-                                        'rebuffer_ratio','total_bitrate_change','time_average_bitrate_change','total_played_bitrate',\
-                                            'time_average_rebuffer','total_rebuffer', 'buffer_level', 'delay', 'latency', 'bandwidth']
-        file_exists = os.path.exists(self.clientFilename)
-        with open(self.clientFilename, 'a' if file_exists else 'w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=allClientKeys)
-            if not file_exists: writer.writeheader()
-            writer.writerows(stepData)
+        clientData = pd.DataFrame(stepData)
+        # Check if the file exists
+        if os.path.exists(self.clientFilename):
+            # Append without writing the header
+            clientData.to_csv(self.clientFilename, mode='a', header=False, index=False)
+        else:
+            # Write a new file with the header
+            clientData.to_csv(self.clientFilename, mode='w', header=True, index=False)
+
 
     def load_json(self, path):
         with open(path) as file:
