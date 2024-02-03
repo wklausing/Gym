@@ -31,6 +31,7 @@ class Client():
         self.missingTraceTime = 0
         self.maxActiveClients = maxActiveClients
         self.idxManifest = 0
+        self.normDistancesToCdns = []
 
         self.network_conditions = deque()
         self.currentBandwidth = 0
@@ -46,6 +47,7 @@ class Client():
         self.metrics = []# Includes also step information.
 
         self._determineNormalizedQoE()
+        self._normalized_distances()
 
     def setManifest(self, manifest):
         '''
@@ -233,6 +235,24 @@ class Client():
         self.maxQoE = sabre.determineQoE(bandwidth, min(latencyList))
         sabre = Sabre(max_buffer=self.bufferSize, movie=self.mpdPath)
         self.minQoE = sabre.determineQoE(bandwidth/self.maxActiveClients, max(latencyList))
+
+    def _normalized_distances(self):
+        """Calculate normalized distances of locations to a single location."""
+        location = self.location
+        cdnLocations = [cdn.location for cdn in self.cdns]
+
+        distances = []
+        for cdnLocation in cdnLocations:
+            distance = self.util.calcDistance(cdnLocation, location)
+            distances.append(distance)
+        
+        # Normalize distances
+        max_distance = max(distances)
+        if max_distance == 0:  # Avoid division by zero if all locations are the same
+            return [0 for _ in distances]
+        
+        normalized = [distance / max_distance for distance in distances]
+        self.normDistancesToCdns = normalized
 
     def saveData(self, finalStep=False):
         if self.util.saveData: 

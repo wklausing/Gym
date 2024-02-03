@@ -2,6 +2,7 @@ import csv
 import os
 import json
 import pandas as pd
+import math
 
 class Util:
 
@@ -18,6 +19,12 @@ class Util:
         
         # Shared variables
         self.episodeCounter = 0
+
+    def calcDistance(self, position1, position2):
+        pos1 = position1 % self.gridWidth, position1 // self.gridHeight
+        pos2 = position2 % self.gridWidth, position2 // self.gridHeight
+        distance = round(math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2), 2) # Euklidean distance
+        return distance
 
     def cdnCsvExport(self, stepData):
         allCdnKeys = ['episode', 'time', 'id', 'clientsCount', 'clients', 'bandwidth_kbps', 'currentBandwidth', 'price', 'money', 'contigent']

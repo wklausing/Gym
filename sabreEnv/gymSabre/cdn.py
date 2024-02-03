@@ -93,9 +93,7 @@ class CDN:
         '''
         Calculates distance between two points. Used to calcualte latency.
         '''
-        position1 = position1 % self.util.gridWidth, position1 // self.util.gridHeight
-        position2 = position2 % self.util.gridWidth, position2 // self.util.gridHeight
-        distance = round(math.sqrt((position1[0] - position2[0])**2 + (position1[1] - position2[1])**2), 2) # Euklidean distance
+        distance = self.util.calcDistance(position1, position2)
         distance = round(distance * 5, 2)
         if distance < 1: distance = 1
         return distance
