@@ -31,7 +31,7 @@ class GymSabreEnv(gym.Env):
                     bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=2, weightCost=1, weightAbort=1, dqnActionSpace=False
+                    weightQoE=2, weightCost=1, weightAbort=1, discreteActionSpace=False
                 ):
         
         # Checking input parameters
@@ -73,7 +73,7 @@ class GymSabreEnv(gym.Env):
         self.weightQoE = weightQoE
         self.weightCost = weightCost
         self.weightAbort = weightAbort
-        self.dqnActionSpace = dqnActionSpace
+        self.discreteActionSpace = discreteActionSpace
                 
         # CDN variables
         self.cdnCount = cdns
@@ -90,6 +90,7 @@ class GymSabreEnv(gym.Env):
         self.ttl = ttl
         self.bufferSize = bufferSize
         self.manifest = self.util.load_json(mpdPath)
+        self.manifestLength = manifestLenght
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -103,7 +104,7 @@ class GymSabreEnv(gym.Env):
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
-        if dqnActionSpace == True:
+        if discreteActionSpace == True:
             self.action_space = gym.spaces.Discrete(int(pow(cdns, manifestLenght)))
         else:
             self.action_space = gym.spaces.MultiDiscrete(manifestLenght * [cdns])
@@ -164,8 +165,8 @@ class GymSabreEnv(gym.Env):
         metrics = {}
 
         # Add manifest to client
-        if self.dqnActionSpace:
-            manifest = self.interpret_action(action, 4, self.cdnCount)
+        if self.discreteActionSpace:
+            manifest = self.interpret_action(action, self.manifestLength, self.cdnCount)
         else:
             manifest = action
 
