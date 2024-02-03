@@ -90,6 +90,7 @@ class GymSabreEnv(gym.Env):
         self.ttl = ttl
         self.bufferSize = bufferSize
         self.mpdPath = mpdPath
+        self.manifest = self.util.load_json(mpdPath)
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -414,7 +415,7 @@ class GymSabreEnv(gym.Env):
         if self.locIndex >= 20: self.locIndex = 0
         c = Client(self.clientIDs, self.clientLocList[self.locIndex], self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
-                              maxActiveClients=self.maxActiveClients, mpdPath=self.mpdPath)
+                              maxActiveClients=self.maxActiveClients, mpdPath=self.manifest)
         self.locIndex += 1
 
         self.clientIDs += 1

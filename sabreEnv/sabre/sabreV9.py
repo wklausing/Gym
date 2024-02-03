@@ -448,7 +448,7 @@ class Sabre():
 
         self.time_average_played_bitrateList = []
 
-        self.util.manifest = self.util.load_json(movie)
+        self.util.manifest = movie
         bitrates = self.util.manifest['bitrates_kbps']
         self.bitrates = bitrates
         utility_offset = 0 - math.log(bitrates[0])  # so utilities[0] = 0
