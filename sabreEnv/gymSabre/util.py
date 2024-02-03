@@ -1,6 +1,6 @@
 import csv
 import os
-from datetime import datetime
+import json
 
 class Util:
 
@@ -39,3 +39,8 @@ class Util:
             writer = csv.DictWriter(file, fieldnames=allClientKeys)
             if not file_exists: writer.writeheader()
             writer.writerows(stepData)
+
+    def load_json(self, path):
+        with open(path) as file:
+            obj = json.load(file)
+        return obj

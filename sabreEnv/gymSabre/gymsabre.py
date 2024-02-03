@@ -28,7 +28,7 @@ class GymSabreEnv(gym.Env):
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], shuffelPrice=999999999999, \
                     maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
-                    bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
+                    bufferSize=25, mpdPath='sabreEnv/sabre/data/movie_597s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=False, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
                     weightQoE=2, weightCost=1, weightAbort=1, dqnActionSpace=True
@@ -89,7 +89,7 @@ class GymSabreEnv(gym.Env):
         self.contentSteering = contentSteering
         self.ttl = ttl
         self.bufferSize = bufferSize
-        self.mpdPath = mpdPath
+        self.manifest = self.util.load_json(mpdPath)
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
@@ -414,7 +414,7 @@ class GymSabreEnv(gym.Env):
         if self.locIndex >= 20: self.locIndex = 0
         c = Client(self.clientIDs, self.clientLocList[self.locIndex], self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
-                              maxActiveClients=self.maxActiveClients, mpdPath=self.mpdPath)
+                              maxActiveClients=self.maxActiveClients, mpdPath=self.manifest)
         self.locIndex += 1
 
         self.clientIDs += 1
@@ -471,6 +471,7 @@ if __name__ == "__main__":
 
         if terminated or truncated:
             observation, info = env.reset()
+            quit()
 
     env.close()
     print('### Done ###')

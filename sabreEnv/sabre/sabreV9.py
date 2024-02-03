@@ -449,7 +449,12 @@ class Sabre():
 
         self.time_average_played_bitrateList = []
 
-        self.util.manifest = self.util.load_json(movie)
+        if isinstance(movie, str):
+            self.util.manifest = self.util.load_json(movie)
+        elif isinstance(movie, dict):
+            self.util.manifest = movie
+        else:
+            raise ValueError('movie must be a string or a dict')
         bitrates = self.util.manifest['bitrates_kbps']
         self.bitrates = bitrates
         utility_offset = 0 - math.log(bitrates[0])  # so utilities[0] = 0

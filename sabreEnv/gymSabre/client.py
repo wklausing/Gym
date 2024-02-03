@@ -14,7 +14,7 @@ class Client():
     - abortedStreaming: Sabre has aborted streaming.
     - delay: Sabre has a delay, because it buffered enough content already.
     '''
-    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25, maxActiveClients=10, mpdPath='sabreEnv/sabre/data/movie_30s.json'):
+    def __init__(self, id, location, cdns, util, contentSteering=False, ttl=60, bufferSize=25, maxActiveClients=10, mpdPath={}):
         self.util = util
         self.id = id
         self.alive = True
