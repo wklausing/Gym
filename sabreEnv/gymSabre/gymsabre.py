@@ -95,11 +95,9 @@ class GymSabreEnv(gym.Env):
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         self.observation_space = spaces.Dict(
             {
-                'clientLocation': gym.spaces.Discrete(self.gridSize+1, start=0),
                 'cdnsCurrentBandwidth': gym.spaces.MultiDiscrete([cdnBandwidth+1] * cdns),
-                'cdnLocations': gym.spaces.MultiDiscrete([self.gridSize] * cdns),
-                'cdnPrices': spaces.Box(0, 10, shape=(cdns,), dtype=float),
-                'time': spaces.Box(0, 100_000, shape=(1,), dtype=int)
+                'cdnNormLocations': gym.spaces.MultiDiscrete([2] * cdns),
+                'cdnNormPrices': spaces.Box(0, 2, shape=(cdns,), dtype=float)
             }
         )
  
@@ -148,6 +146,7 @@ class GymSabreEnv(gym.Env):
         self.clients = []
         self.clientIDs = 0
         self.totalClients = self.totalClientsReset
+        self._addClient()
 
         observation = self._get_obs()
         info = {}
@@ -328,30 +327,29 @@ class GymSabreEnv(gym.Env):
 
     def _get_obs(self):
         # Client who receices a manifest.
-        self.obsClientLocation = self.gridSize
+        currentClient = None
         for client in self.clients:
             if client.alive and client.needsManifest:
-                self.obsClientLocation = client.location
-
-        # Clients locations. Fill clientsLocations with gridSize so that observation space doesn't change TODO
-        # clientsLocations = []
-        # for client in self.clients:
-        #     clientsLocations.append(client.location)
-        # while len(clientsLocations) < self.maxActiveClients:
-        #     clientsLocations.append(self.gridSize)
+                currentClient = client
 
         # Take current bandwidth of CDNs into observation space
         cdnsCurrentBandwidth = []
         for cdn in self.cdns:
             cdnsCurrentBandwidth.append(cdn.currentBandwidth)
-
-        return {
-            'clientLocation': np.array(self.obsClientLocation), 
-            'cdnsCurrentBandwidth': cdnsCurrentBandwidth, 
-            'cdnLocations': self.cdnLocations, 
-            'cdnPrices': self.cdnPrices, 
-            'time': self.time
-        }
+            
+        if isinstance(currentClient, Client):
+            obs = {
+                'cdnsCurrentBandwidth': cdnsCurrentBandwidth, 
+                'normDistancesToCdns': currentClient.normDistancesToCdns, 
+                'cdnNormPrices': self.cdnPrices
+            }
+        else:
+            obs = {
+                'cdnsCurrentBandwidth': cdnsCurrentBandwidth, 
+                'normDistancesToCdns': [0] * self.cdnCount, 
+                'cdnNormPrices': self.cdnPrices
+            }
+        return obs
 
     def _get_info(self, reward):
         self.sumReward += reward
