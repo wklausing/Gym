@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 
+NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency')
 
 class NetworkModel:
 
@@ -14,7 +15,7 @@ class NetworkModel:
                                   'size downloaded '
                                   'time time_to_first_bit '
                                   'abandon_to_quality')
-    NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency')
+    
 
     min_progress_size = 12000
     min_progress_time = 50
@@ -37,7 +38,7 @@ class NetworkModel:
         '''
         Adds a new network condition to self.trace. Will be removed after one use.
         '''
-        network_trace = self.NetworkPeriod(time=duration_ms,
+        network_trace = NetworkPeriod(time=duration_ms,
                                     bandwidth=bandwidth_kbps *
                                     1,
                                     latency=latency_ms)
@@ -366,6 +367,8 @@ class NetworkModel:
         else:
             return False        
 
+ManifestInfo = namedtuple('ManifestInfo', 'segment_time bitrates utilities segments')
+#NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency permanent')
 
 class Sabre():
 
@@ -382,11 +385,9 @@ class Sabre():
     abr_list['dynamic'] = Dynamic
     abr_list['dynamicdash'] = DynamicDash
     abr_list['bba'] = Bba
+    
 
-    ManifestInfo = namedtuple('ManifestInfo', 'segment_time bitrates utilities segments')
-    NetworkPeriod = namedtuple('NetworkPeriod', 'time bandwidth latency permanent')
 
-    util = Util()
     throughput_history = None
     abr = None
     firstSegment = True
@@ -453,7 +454,7 @@ class Sabre():
         self.bitrates = bitrates
         utility_offset = 0 - math.log(bitrates[0])  # so utilities[0] = 0
         utilities = [math.log(b) + utility_offset for b in bitrates]
-        self.util.manifest = self.ManifestInfo(segment_time=self.util.manifest['segment_duration_ms'],
+        self.util.manifest = ManifestInfo(segment_time=self.util.manifest['segment_duration_ms'],
                                     bitrates=bitrates,
                                     utilities=utilities,
                                     segments=self.util.manifest['segment_sizes_bits'])
