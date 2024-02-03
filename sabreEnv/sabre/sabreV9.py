@@ -671,15 +671,15 @@ class Sabre():
             'estimate': self.estimate_average,
         }
 
-        foo1= self.util.total_play_time
-        foo2 = self.util.manifest.segment_time
-        to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
+        # foo1= self.util.total_play_time
+        # foo2 = self.util.manifest.segment_time
+        # to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
 
-        foo3 = self.util.played_utility
-        foo4= self.gamma_p
-        foo5 = self.util.rebuffer_time
-        foofinal = to_time_average * (self.util.played_utility - self.gamma_p * self.util.rebuffer_time / self.util.manifest.segment_time)
-        pass
+        # foo3 = self.util.played_utility
+        # foo4= self.gamma_p
+        # foo5 = self.util.rebuffer_time
+        # foofinal = to_time_average * (self.util.played_utility - self.gamma_p * self.util.rebuffer_time / self.util.manifest.segment_time)
+        
         if self.util.verbose:
             print(results_dict)
 

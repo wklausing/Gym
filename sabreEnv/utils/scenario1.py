@@ -63,7 +63,7 @@ if __name__ == '__main__':
             if load:
                 model = PPO.load('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
             else:
-                model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
+                model = PPO('MlpPolicy', envs, device="cuda").learn(progress_bar=True, total_timesteps=timesteps)
             model.save('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
 
         # CS On
@@ -72,7 +72,7 @@ if __name__ == '__main__':
             if load:
                 model = PPO.load('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
             else:
-                model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
+                model = PPO('MlpPolicy', envs, device="cuda").learn(progress_bar=True, total_timesteps=timesteps)
             model.save('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOn_' + str(timesteps))
 
         train(argsCsOff, timesteps, load=load)
