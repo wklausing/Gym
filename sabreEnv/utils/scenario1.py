@@ -35,7 +35,7 @@ if __name__ == '__main__':
         'maxActiveClients': 10,
         'totalClients': 100,
         'ttl': 90,
-        'mpdPath': 'sabreEnv/sabre/data/movie_570s.json',
+        'mpdPath': 'sabreEnv/sabre/data/movie_597s.json',
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
         'discreteActionSpace': True
     }
@@ -46,7 +46,7 @@ if __name__ == '__main__':
         'maxActiveClients': 10,
         'totalClients': 100,
         'ttl': 90,
-        'mpdPath': 'sabreEnv/sabre/data/movie_570s.json',
+        'mpdPath': 'sabreEnv/sabre/data/movie_597s.json',
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
         'discreteActionSpace': True
     }
