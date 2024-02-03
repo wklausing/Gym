@@ -78,7 +78,7 @@ class GymSabreEnv(gym.Env):
         # CDN variables
         self.cdnCount = cdns
         self.cdnLocationsFixed = cdnLocationsFixed
-        self.cdnPrices = np.ones(cdns, dtype=int)
+        self.cdnPrices = [1] * cdns
         self.cdnBandwidth = cdnBandwidth
         self.cdnReliable = cdnReliable
         self.shuffelPrice = shuffelPrice
@@ -93,12 +93,19 @@ class GymSabreEnv(gym.Env):
         self.manifestLength = manifestLenght
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
-        self.observation_space = spaces.Dict(
-            {
-                'cdnsCurrentBandwidth': gym.spaces.MultiDiscrete([cdnBandwidth+1] * cdns),
-                'normDistancesToCdns': gym.spaces.MultiDiscrete([2] * cdns),
-                'cdnNormPrices': spaces.Box(0, 2, shape=(cdns,), dtype=float)
-            }
+        # self.observation_space = spaces.Dict(
+        #     {
+        #         'cdnsNornCurrentBandwidth': spaces.Box(0, 2, shape=(cdns,), dtype=float),
+        #         'normDistancesToCdns': spaces.Box(0, 2, shape=(cdns,), dtype=float),
+        #         'cdnsNormPrices': spaces.Box(0, 2, shape=(cdns,), dtype=float)
+        #     }
+        # )
+
+        self.observation_space = spaces.Box(
+            low=0, 
+            high=2, 
+            shape=(3 * cdns,),
+            dtype=float
         )
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
@@ -136,7 +143,7 @@ class GymSabreEnv(gym.Env):
             self.cdnLocations = filtered_fixed_locations
 
         #self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
-        self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2)
+        self.cdnPrices = [round(self.np_random.uniform(0.02, 0.07), 2) for _ in range(self.cdnCount)]
         self.cdns = []
         for e in range(self.cdnCount):
             reliable = self.cdnReliable[e] if e < len(self.cdnReliable) and e >= 0 else 100
@@ -335,20 +342,22 @@ class GymSabreEnv(gym.Env):
         # Take current bandwidth of CDNs into observation space
         cdnsCurrentBandwidth = []
         for cdn in self.cdns:
-            cdnsCurrentBandwidth.append(cdn.currentBandwidth)
+            cdnsCurrentBandwidth.append(cdn.normBandwidth)
             
         if isinstance(currentClient, Client):
-            obs = {
-                'cdnsCurrentBandwidth': cdnsCurrentBandwidth, 
-                'normDistancesToCdns': currentClient.normDistancesToCdns, 
-                'cdnNormPrices': self.cdnPrices
-            }
+            # obs = {
+            #     'cdnsNornCurrentBandwidth': cdnsCurrentBandwidth, 
+            #     'normDistancesToCdns': currentClient.normDistancesToCdns, 
+            #     'cdnsNormPrices': self.cdnPrices
+            # }
+            obs = np.array(cdnsCurrentBandwidth + currentClient.normDistancesToCdns + self.cdnPrices)
         else:
-            obs = {
-                'cdnsCurrentBandwidth': cdnsCurrentBandwidth, 
-                'normDistancesToCdns': [0] * self.cdnCount, 
-                'cdnNormPrices': self.cdnPrices
-            }
+            # obs = {
+            #     'cdnsNornCurrentBandwidth': cdnsCurrentBandwidth, 
+            #     'normDistancesToCdns': [0] * self.cdnCount, 
+            #     'cdnsNormPrices': self.cdnPrices
+            # }
+            obs = np.array(cdnsCurrentBandwidth + [0] * self.cdnCount + self.cdnPrices)
         return obs
 
     def _get_info(self, reward):
