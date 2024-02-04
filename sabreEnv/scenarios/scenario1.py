@@ -31,7 +31,6 @@ argsCsOn = {
     'cdns': 4,
     'maxActiveClients': 20,
     'totalClients': 100,
-    'ttl': 30,
     'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',
     'cdnLocationsFixed': [3333, 3366, 6633, 6666],
     'discreteActionSpace': True,
@@ -89,8 +88,9 @@ def evalModel(args, path):
     env = gym.make('gymsabre-v0', **args)
     model = PPO.load(path, env=env, verbose=1)
     vec_env = model.get_env()
+    vec_env.seed(1)
     mean_reward, std_reward = evaluate_policy(model, vec_env, n_eval_episodes=10)
-
+    print(f'Mean reward: {mean_reward}, Std reward: {std_reward}')
 
 if __name__ == '__main__':
     trainModel()
