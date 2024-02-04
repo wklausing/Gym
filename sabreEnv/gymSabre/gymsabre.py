@@ -32,7 +32,7 @@ class GymSabreEnv(gym.Env):
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
                     weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True,
-                    shuffelBandwidth=999999999999, shuffelPrice=999999999999
+                    shuffleBandwidth=100, bandwidthToShuffle=1000, shufflePrice=50
                 ):
         
         # Checking input parameters
@@ -81,10 +81,12 @@ class GymSabreEnv(gym.Env):
         self.cdnCount = cdns
         self.cdnLocationsFixed = cdnLocationsFixed
         self.cdnPrices = [1] * cdns
+        self.cdnBandwidthOriginal = [cdnBandwidth] * cdns
         self.cdnBandwidth = cdnBandwidth
         self.cdnReliable = cdnReliable
-        self.shuffelPrice = shuffelPrice
-        self.shuffelBandwidth = shuffelBandwidth
+        self.shufflePrice = shufflePrice
+        self.shuffleBandwidth = shuffleBandwidth
+        self.bandwidthToShuffle = bandwidthToShuffle
 
         # Client variables
         self.maxActiveClients = maxActiveClients
@@ -190,21 +192,23 @@ class GymSabreEnv(gym.Env):
             self._clientAdder(time, mode=self.clientAppearingMode)
             self.newTime = False
 
-            # Shuffel prices
-            if self.time > 1 and self.time % self.shuffelPrice == 0:
+            # Shuffle prices
+            if self.time > 1 and self.time % self.shufflePrice == 0:
                 oldPrices = self.cdnPrices
-                self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2)
+                self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2).tolist()
                 for i, cdn in enumerate(self.cdns):
                     cdn.price = round(self.cdnPrices[i], 2)
-                gym.logger.info(f'Prices shuffeld: {oldPrices} -> {self.cdnPrices}')
+                gym.logger.info(f'Prices shuffled: {oldPrices} -> {self.cdnPrices}')
 
-            # Shuffel network conditions of CDNs
-            if self.time > 1 and self.time % self.shuffelBandwidth == 0:
-                oldBandwidth = self.cdnBandwidth
-                self.cdnBandwidth = [np.random.randint(500, self.cdnBandwidth) for _ in range(self.cdnCount)]
+            # Shuffle network conditions of CDNs
+            if self.time > 1 and self.time % self.shuffleBandwidth == 0:
+                oldBandwidth = [cdn.bandwidth_kbps for cdn in self.cdns]
+                newCdnBandwidth = [np.random.randint(0, self.bandwidthToShuffle) for _ in range(self.cdnCount)]
                 for i, cdn in enumerate(self.cdns):
-                    cdn.bandwidth = self.cdnBandwidth[i]
-                gym.logger.info(f'Bandwidth shuffeld: {oldBandwidth} -> {self.cdnBandwidth}')                
+                    cdn.bandwidth_kbps = self.cdnBandwidthOriginal[i] + newCdnBandwidth[i]
+                actualBandwidth = [cdn.bandwidth_kbps for cdn in self.cdns]    
+                gym.logger.info(f'Bandwidth shuffled: {oldBandwidth} -> {actualBandwidth}')      
+                pass          
 
             # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
             allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
