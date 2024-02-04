@@ -20,19 +20,19 @@ import math
 
 import pandas as pd
 
-gym.logger.set_level(30) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
+gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
-                    cdns=9, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], \
+                    cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], \
                     maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
                     bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
                     weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True,
-                    shuffleBandwidth=100, bandwidthToShuffle=1000, shufflePrice=50
+                    shuffleBandwidth=99999999999, bandwidthToShuffle=1000, shufflePrice=99999999999
                 ):
         
         # Checking input parameters
