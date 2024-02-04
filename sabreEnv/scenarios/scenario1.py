@@ -13,8 +13,9 @@ from datetime import datetime
 
 argsCsOff = {
     'contentSteering': False,
+    'ttl': 10,
     'cdns': 4,
-    'maxActiveClients': 10,
+    'maxActiveClients': 20,
     'totalClients': 100,
     'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',
     'cdnLocationsFixed': [3333, 3366, 6633, 6666],
@@ -26,8 +27,9 @@ argsCsOff = {
 
 argsCsOn = {
     'contentSteering': True,
+    'ttl': 10,
     'cdns': 4,
-    'maxActiveClients': 10,
+    'maxActiveClients': 20,
     'totalClients': 100,
     'ttl': 30,
     'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',

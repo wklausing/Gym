@@ -26,12 +26,12 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
-                    cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=1000, cdnReliable=[100], shuffelPrice=999999999999, \
-                    maxActiveClients=10, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
+                    cdns=9, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], shuffelPrice=999999999999, \
+                    maxActiveClients=20, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
                     bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=1.3, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True
+                    weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True
                 ):
         
         # Checking input parameters
@@ -304,7 +304,7 @@ class GymSabreEnv(gym.Env):
             pass
 
         if self.verbose:
-            print('Reward:', reward, ' QoE:', qoeNorm, ' Costs:', costsNorm, ' Aborts:', abortPenalty, ' Time:', time, ' Step:', self.stepCounter)
+            print('Reward:', reward, ' QoE_norm:', qoeNorm, ' Costs_norm:', costsNorm, ' Aborts:', abortPenalty, ' Time:', time, ' Step:', self.stepCounter)
 
         return reward
 
@@ -367,7 +367,7 @@ class GymSabreEnv(gym.Env):
 
         if self.verbose and currentClient is not None:
             print("CDNs_CurrentBandwidth:", cdnsCurrentBandwidth)
-            print("CDNs_Distances:", currentClient.normDistancesToCdns)
+            #print("CDNs_Distances:", currentClient.normDistancesToCdns)
             print("CDNs_Prices:", self.cdnPrices)
         return obs
 
@@ -485,7 +485,6 @@ if __name__ == "__main__":
 
         if terminated or truncated:
             observation, info = env.reset()
-            quit()
 
     env.close()
     print('### Done ###')
