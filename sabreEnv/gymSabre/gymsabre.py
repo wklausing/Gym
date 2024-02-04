@@ -222,7 +222,8 @@ class GymSabreEnv(gym.Env):
                 self.clients.remove(client)
 
             if terminated:
-                print('Termination time:', time, ' Step:', self.stepCounter)
+                if self.verbose:
+                    print('Termination time:', time, ' Step:', self.stepCounter)
                 break
             else:
                 

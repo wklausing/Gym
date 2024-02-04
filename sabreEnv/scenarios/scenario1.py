@@ -20,7 +20,8 @@ argsCsOff = {
     'cdnLocationsFixed': [3333, 3366, 6633, 6666],
     'discreteActionSpace': True,
     'bufferSize': 10,
-    'filePrefix': 'CsOff_'
+    'filePrefix': 'CsOff_',
+    'verbose': False
 }
 
 argsCsOn = {
@@ -33,7 +34,8 @@ argsCsOn = {
     'cdnLocationsFixed': [3333, 3366, 6633, 6666],
     'discreteActionSpace': True,
     'bufferSize': 10,
-    'filePrefix': 'CsOn_'
+    'filePrefix': 'CsOn_',
+    'verbose': False
 }
 
 def createEnv(args):
@@ -53,7 +55,7 @@ def createEnv(args):
 def trainModel():
     current_date = datetime.now().strftime("%Y-%m-%d__%H_%M")
     total_timesteps = 0
-    timesteps = 100_000
+    timesteps = 1_000
     load = False
     while total_timesteps < 1_000_000:
         
@@ -90,7 +92,7 @@ def evalModel(args, path):
 
 if __name__ == '__main__':
     trainModel()
-    pathCsOff = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOff_100000'
-    pathCsOn = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOn_100000'
-    evalModel(argsCsOff, pathCsOff)
-    evalModel(argsCsOn, pathCsOn)
+    # pathCsOff = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOff_100000'
+    # pathCsOn = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOn_100000'
+    # evalModel(argsCsOff, pathCsOff)
+    # evalModel(argsCsOn, pathCsOn)
