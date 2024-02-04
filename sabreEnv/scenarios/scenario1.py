@@ -61,19 +61,19 @@ def trainModel():
         def train(args, timesteps, load=False):
             envs = createEnv(args)
             if load:
-                model = PPO.load('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
+                model = PPO.load('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
             else:
                 model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
-            model.save('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
+            model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
 
         # CS On
         def train(args, timesteps, load=False):
             envs = createEnv(args)
             if load:
-                model = PPO.load('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
+                model = PPO.load('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
             else:
                 model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
-            model.save('sabreEnv/utils/data/sc1/' + current_date + '/ppo_CsOff/policyCsOn_' + str(timesteps))
+            model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
 
         train(argsCsOff, timesteps, load=load)
         train(argsCsOn, timesteps, load=load)
@@ -89,6 +89,7 @@ def evalModel(args, path):
 
 
 if __name__ == '__main__':
+    trainModel()
     pathCsOff = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOff_100000'
     pathCsOn = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOn_100000'
     evalModel(argsCsOff, pathCsOff)

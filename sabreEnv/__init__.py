@@ -1,7 +1,6 @@
 
 from sabreEnv.gymSabre.gymsabre import GymSabreEnv
 from sabre.sabreV8 import Sabre
-from utils.scenarioPPO import Scenarios
 
 
 
