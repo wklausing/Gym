@@ -13,7 +13,8 @@ from datetime import datetime
 
 argsCsOff = {
     'contentSteering': False,
-    'ttl': 10,
+    'ttl': 100,
+    'shufflePrice': 99,
     'cdns': 4,
     'maxActiveClients': 20,
     'totalClients': 100,
@@ -27,7 +28,8 @@ argsCsOff = {
 
 argsCsOn = {
     'contentSteering': True,
-    'ttl': 10,
+    'ttl': 100,
+    'shufflePrice': 99,
     'cdns': 4,
     'maxActiveClients': 20,
     'totalClients': 100,
