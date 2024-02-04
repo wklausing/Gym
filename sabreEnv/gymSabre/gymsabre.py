@@ -26,12 +26,13 @@ class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
-                    cdns=9, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], shuffelPrice=999999999999, \
+                    cdns=9, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], \
                     maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
                     bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True
+                    weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True,
+                    shuffelBandwidth=999999999999, shuffelPrice=999999999999
                 ):
         
         # Checking input parameters
@@ -83,6 +84,7 @@ class GymSabreEnv(gym.Env):
         self.cdnBandwidth = cdnBandwidth
         self.cdnReliable = cdnReliable
         self.shuffelPrice = shuffelPrice
+        self.shuffelBandwidth = shuffelBandwidth
 
         # Client variables
         self.maxActiveClients = maxActiveClients
@@ -195,6 +197,14 @@ class GymSabreEnv(gym.Env):
                 for i, cdn in enumerate(self.cdns):
                     cdn.price = round(self.cdnPrices[i], 2)
                 gym.logger.info(f'Prices shuffeld: {oldPrices} -> {self.cdnPrices}')
+
+            # Shuffel network conditions of CDNs
+            if self.time > 1 and self.time % self.shuffelBandwidth == 0:
+                oldBandwidth = self.cdnBandwidth
+                self.cdnBandwidth = [np.random.randint(500, self.cdnBandwidth) for _ in range(self.cdnCount)]
+                for i, cdn in enumerate(self.cdns):
+                    cdn.bandwidth = self.cdnBandwidth[i]
+                gym.logger.info(f'Bandwidth shuffeld: {oldBandwidth} -> {self.cdnBandwidth}')                
 
             # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
             allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
