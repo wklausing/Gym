@@ -56,7 +56,7 @@ def createEnv(args):
     return envs
 
 def trainModel():
-    current_date = datetime.now().strftime("%Y-%m-%d__%H_%M")
+    current_date = 'foo'#datetime.now().strftime("%Y-%m-%d__%H_%M")
     total_timesteps = 0
     timesteps = 1_000
     load = False
@@ -96,7 +96,7 @@ def evalModel(args, path):
 
 if __name__ == '__main__':
     trainModel()
-    # pathCsOff = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOff_100000'
-    # pathCsOn = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOn_100000'
-    # evalModel(argsCsOff, pathCsOff)
-    # evalModel(argsCsOn, pathCsOn)
+    pathCsOff = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOff/policyCsOff_100000'
+    pathCsOn = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOn/policyCsOn_100000'
+    evalModel(argsCsOff, pathCsOff)
+    evalModel(argsCsOn, pathCsOn)
