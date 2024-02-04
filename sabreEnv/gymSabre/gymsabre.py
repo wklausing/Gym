@@ -31,7 +31,7 @@ class GymSabreEnv(gym.Env):
                     bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=2, weightCost=1, weightAbort=1, discreteActionSpace=False
+                    weightQoE=1.3, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True
                 ):
         
         # Checking input parameters
@@ -55,6 +55,7 @@ class GymSabreEnv(gym.Env):
         self.savingPath = savingPath
         
         # For recordings
+        self.verbose = verbose
         self.saveData = saveData
         self.episodeCounter = 0
 
@@ -179,6 +180,7 @@ class GymSabreEnv(gym.Env):
         for client in self.clients:
             if client.alive and client.needsManifest:
                 client.setManifest(manifest)
+                break
             
         metricsCount = 0
         while True:
@@ -300,6 +302,9 @@ class GymSabreEnv(gym.Env):
         if reward > 20 or reward < -10:
             pass
 
+        if self.verbose:
+            print('Reward:', reward, ' QoE:', qoeNorm, ' Costs:', costsNorm, ' Aborts:', abortPenalty, ' Time:', time, ' Step:', self.stepCounter)
+
         return reward
 
     def render(self, mode="human"):
@@ -358,6 +363,11 @@ class GymSabreEnv(gym.Env):
             #     'cdnsNormPrices': self.cdnPrices
             # }
             obs = np.array(cdnsCurrentBandwidth + [0] * self.cdnCount + self.cdnPrices)
+
+        if self.verbose and currentClient is not None:
+            print("CDNs_CurrentBandwidth:", cdnsCurrentBandwidth)
+            print("CDNs_Distances:", currentClient.normDistancesToCdns)
+            print("CDNs_Prices:", self.cdnPrices)
         return obs
 
     def _get_info(self, reward):
