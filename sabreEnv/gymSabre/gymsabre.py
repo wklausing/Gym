@@ -217,7 +217,7 @@ class GymSabreEnv(gym.Env):
                 gym.logger.info('All clients done.')
             elif self.time >= self.maxTime:
                 gym.logger.info('Maximal time is reached.')
-            terminated = allClientsDone or self.time >= self.maxTime
+            terminated = allClientsDone# or self.time >= self.maxTime
 
             if terminated:
                 pass
