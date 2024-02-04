@@ -494,7 +494,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=50, saveData=False, contentSteering=False, ttl=10, maxTime=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=50, saveData=False, contentSteering=False, ttl=10, maxTime=10000)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
@@ -511,6 +511,6 @@ if __name__ == "__main__":
     print(f'Episode total rewards: {env.return_queue}')
     print(f'Episode lengths: {env.length_queue}')
     print(f'Episode count: {env.episode_count}')
-    print(f'Episode start time: {env.episode_start_times}')
+    #print(f'Episode start time: {env.episode_start_times}')
     print(f'Episode returns: {env.episode_returns}')
     print(f'Episode lengths: {env.episode_lengths}')
