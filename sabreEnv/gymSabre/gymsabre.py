@@ -20,7 +20,7 @@ import math
 
 import pandas as pd
 
-gym.logger.set_level(10) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
+gym.logger.set_level(50) # Define logger level. 20 = info, 30 = warn, 40 = error, 50 = disabled
 
 class GymSabreEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -29,9 +29,9 @@ class GymSabreEnv(gym.Env):
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], \
                     maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
                     bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
-                    contentSteering=False, ttl=500, maxSteps=1_000, \
+                    contentSteering=False, ttl=500, maxTime=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=True,
+                    weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=False,
                     shuffleBandwidth=99999999999, bandwidthToShuffle=1000, shufflePrice=99999999999
                 ):
         
@@ -47,7 +47,7 @@ class GymSabreEnv(gym.Env):
         assert manifestLenght > 0, 'manifestLenght must be greater than 0.'
         assert maxActiveClients <= totalClients, 'totalClients must be greater or equal to maxActiveClients.'
         assert ttl >= 0, 'ttl must be greater or equal than 0.'
-        assert maxSteps > 0, 'maxSteps must be greater than 0.'
+        assert maxTime > 0, 'maxTime must be greater than 0.'
         assert bufferSize > 0, 'bufferSize must be greater than 0.'
 
         # Util
@@ -70,12 +70,13 @@ class GymSabreEnv(gym.Env):
         self.gridWidth = gridWidth
         self.gridHeight = gridHeight
         self.gridSize = gridWidth * gridHeight
-        self.maxSteps = maxSteps
+        self.maxTime = maxTime
         self.clientAppearingMode = clientAppearingMode
         self.weightQoE = weightQoE
         self.weightCost = weightCost
         self.weightAbort = weightAbort
         self.discreteActionSpace = discreteActionSpace
+        self.rewardCounter = 0
                 
         # CDN variables
         self.cdnCount = cdns
@@ -214,9 +215,9 @@ class GymSabreEnv(gym.Env):
             allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
             if allClientsDone:
                 gym.logger.info('All clients done.')
-            elif self.stepCounter >= self.maxSteps:
+            elif self.time >= self.maxTime:
                 gym.logger.info('Maximal step is reached.')
-            terminated = self.stepCounter >= self.maxSteps or allClientsDone
+            terminated = allClientsDone or self.time >= self.maxTime
 
             if terminated:
                 pass
@@ -282,6 +283,9 @@ class GymSabreEnv(gym.Env):
         - delay: Sabre has a delay, because it buffered enough content already.
         '''
         if len(metrics) == 0: return 0
+
+        self.rewardCounter += 1
+
         qoeNorm = 0
         qoeCount = 0
         abortPenalty = 0
@@ -352,6 +356,8 @@ class GymSabreEnv(gym.Env):
             self.cpData.to_csv(path + 'cpData.csv', index=False)
             gym.logger.info('Data saved to renderData.csv')
 
+        print('rewardCounter:', self.rewardCounter) 
+
     def _get_obs(self):
         # Client who receices a manifest.
         currentClient = None
@@ -419,7 +425,7 @@ class GymSabreEnv(gym.Env):
                     self._addClient()
         elif mode == 'parabolic':
             # Calculate the number of clients to add based on a parabolic function
-            midpoint = self.maxSteps / 2
+            midpoint = self.maxTime / 2
             a = -4 * self.maxActiveClients / (midpoint ** 2)  # Adjust 'a' to control the peak
             num_new_clients = int(a * (time - midpoint) ** 2 + self.maxActiveClients)
 
@@ -429,7 +435,7 @@ class GymSabreEnv(gym.Env):
         elif mode == 'exponentially':
             # Exponential growth parameters
             a = max(1, len(self.clients))  # Ensure a is at least 1
-            b = math.log(self.maxActiveClients / a) / self.maxSteps
+            b = math.log(self.maxActiveClients / a) / self.maxTime
 
             num_new_clients = int(a * math.exp(b * time))
             max_addable_clients = self.maxActiveClients - len(self.clients)
@@ -488,7 +494,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=100, saveData=True, contentSteering=False, ttl=10, maxSteps=steps)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=50, saveData=False, contentSteering=False, ttl=10, maxTime=steps)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
