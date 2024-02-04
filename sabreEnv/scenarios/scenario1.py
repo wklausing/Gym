@@ -96,7 +96,7 @@ def evalModel(args, path):
 
 if __name__ == '__main__':
     trainModel()
-    pathCsOff = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOff/policyCsOff_1000'
-    pathCsOn = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOn/policyCsOn_1000'
+    pathCsOff = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOff/policyCsOff_100000'
+    pathCsOn = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOn/policyCsOn_100000'
     evalModel(argsCsOff, pathCsOff)
     evalModel(argsCsOn, pathCsOn)
