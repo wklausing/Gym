@@ -27,7 +27,7 @@ class GymSabreEnv(gym.Env):
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=9, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], shuffelPrice=999999999999, \
-                    maxActiveClients=20, totalClients=100, clientAppearingMode='constante', manifestLenght=4, \
+                    maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
                     bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxSteps=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
