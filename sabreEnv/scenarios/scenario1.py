@@ -60,7 +60,7 @@ def trainModel():
     while total_timesteps < 1_000_000:
         
         # CS off
-        def train(args, timesteps, load=False):
+        def trainCsOff(args, timesteps, load=False):
             envs = createEnv(args)
             if load:
                 model = PPO.load('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
@@ -69,7 +69,7 @@ def trainModel():
             model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
 
         # CS On
-        def train(args, timesteps, load=False):
+        def trainCsOn(args, timesteps, load=False):
             envs = createEnv(args)
             if load:
                 model = PPO.load('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
@@ -77,8 +77,8 @@ def trainModel():
                 model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
             model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
 
-        train(argsCsOff, timesteps, load=load)
-        train(argsCsOn, timesteps, load=load)
+        trainCsOff(argsCsOff, timesteps, load=load)
+        trainCsOn(argsCsOn, timesteps, load=load)
         load = True
         total_timesteps += 100_000
 
