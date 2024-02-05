@@ -159,7 +159,7 @@ class Client():
                 self.missingTraceTime = 0
 
             if metrics['status'] == 'delay':
-                self.delay = metrics['delay']
+                self.delay = round(metrics['delay'] / 1000) * 1000
 
         # Save data for later
         stepInfos = {

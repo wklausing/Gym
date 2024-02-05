@@ -28,10 +28,10 @@ class GymSabreEnv(gym.Env):
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], \
                     maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
-                    bufferSize=20, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
+                    bufferSize=10, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxTime=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
-                    weightQoE=1.5, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=False,
+                    weightQoE=1, weightCost=1, weightAbort=1, discreteActionSpace=False, verbose=False,
                     shuffleBandwidth=99999999999, bandwidthToShuffle=1000, shufflePrice=99999999999
                 ):
         
@@ -194,7 +194,7 @@ class GymSabreEnv(gym.Env):
             self.newTime = False
 
             # Shuffle prices
-            if self.time > 1 and self.time % self.shufflePrice == 0:
+            if self.time > 0 and self.time % self.shufflePrice == 0:
                 oldPrices = self.cdnPrices
                 self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2).tolist()
                 for i, cdn in enumerate(self.cdns):
@@ -202,7 +202,7 @@ class GymSabreEnv(gym.Env):
                 gym.logger.info(f'Prices shuffled: {oldPrices} -> {self.cdnPrices}')
 
             # Shuffle network conditions of CDNs
-            if self.time > 1 and self.time % self.shuffleBandwidth == 0:
+            if self.time > 0 and self.time % self.shuffleBandwidth == 0:
                 oldBandwidth = [cdn.bandwidth_kbps for cdn in self.cdns]
                 newCdnBandwidth = [np.random.randint(0, self.bandwidthToShuffle) for _ in range(self.cdnCount)]
                 for i, cdn in enumerate(self.cdns):
@@ -494,7 +494,7 @@ if __name__ == "__main__":
     print('### Start ###')
     steps = 1_000
 
-    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=50, saveData=False, contentSteering=False, ttl=10, maxTime=10000)
+    env = GymSabreEnv(render_mode="human", maxActiveClients=10, totalClients=50, saveData=True, contentSteering=False, ttl=10, maxTime=10000)
     env = RecordEpisodeStatistics(env)
     env = TimeLimit(env, max_episode_steps=steps)
     observation, info = env.reset()
