@@ -83,7 +83,7 @@ def trainModel():
         trainCsOff(argsCsOff, timesteps, load=load)
         trainCsOn(argsCsOn, timesteps, load=load)
         load = True
-        total_timesteps += 100_000
+        total_timesteps += timesteps
         break
 
 def evalModel(args, path):

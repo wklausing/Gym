@@ -28,6 +28,7 @@ def train():
     current_date = datetime.now().strftime("%Y-%m-%d__%H_%M")
     total_timesteps = 0
     timesteps = 10_000
+    
     load = False
     while total_timesteps < 1_000_000:
         
@@ -79,7 +80,7 @@ def train():
             'bufferSize': 10,
             'clientAppearingMode': 'random'
         }
-
+        
         trainCsOff(argsCsOff, timesteps, load=load)
         trainCsOn(argsCsOn, timesteps, load=load)
         load = True
