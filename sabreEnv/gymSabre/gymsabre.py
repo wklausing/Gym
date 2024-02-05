@@ -178,7 +178,7 @@ class GymSabreEnv(gym.Env):
 
         # Add manifest to client
         if self.discreteActionSpace:
-            manifest = self.interpret_action(action, self.manifestLength, self.cdnCount)
+            manifest = self._interpret_action(action, self.manifestLength, self.cdnCount)
         else:
             manifest = action
 
@@ -211,7 +211,7 @@ class GymSabreEnv(gym.Env):
                 gym.logger.info(f'Bandwidth shuffled: {oldBandwidth} -> {actualBandwidth}')      
                 pass          
 
-            # An episode is done when the CP is out of money, the last step is reached, or when all clients are done.
+            # An episode is done when the CP the last step is reached, or when all clients are done.
             allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
             if allClientsDone:
                 gym.logger.info('All clients done.')
@@ -264,7 +264,7 @@ class GymSabreEnv(gym.Env):
                 self.time = np.array([time], dtype='int')
         
         # Collect information for reward     
-        reward = self.reward(metrics, spendMoney, time)
+        reward = self.reward(metrics, spendMoney, time, action)
         observation = self._get_obs()
         info = self._get_info(reward)
         self.render()
@@ -273,7 +273,7 @@ class GymSabreEnv(gym.Env):
         return observation, reward, terminated, False, info
     
     timeBefore = 0
-    def reward(self, metrics, totalCost, time):
+    def reward(self, metrics, totalCost, time, action):
         '''
         Possible returns from Sabre:
         - missingTrace: Sabre does not have enough trace to complete a download.
@@ -313,7 +313,9 @@ class GymSabreEnv(gym.Env):
                       'qoeNorm': qoeNorm, 
                       'costsNorm': costsNorm,
                       'totalCost': totalCost,
-                      'step': self.stepCounter}
+                      'step': self.stepCounter,
+                      'action': action
+                    }
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         self.timeBefore=time
@@ -472,14 +474,9 @@ class GymSabreEnv(gym.Env):
         normalizedPrice = (price - min_value) / (max_value - min_value)
         return normalizedPrice
     
-    def interpret_action(self, discrete_action, manifestLength, cdns):
+    def _interpret_action(self, discrete_action, manifestLength, cdns):
         """
         Converts an action from the Discrete space into a list of actions in the MultiDiscrete space.
-
-        :param discrete_action: The action in the Discrete space.
-        :param manifestLength: The number of actions in the MultiDiscrete space.
-        :param cdns: The number of possible values for each action in the MultiDiscrete space.
-        :return: A list of actions in the MultiDiscrete space.
         """
         multi_discrete_action = []
         for _ in range(manifestLength):
