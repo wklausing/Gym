@@ -85,4 +85,5 @@ def train():
         load = True
         total_timesteps += timesteps
 
-train()
+if __name__ == '__main__':
+    train()
