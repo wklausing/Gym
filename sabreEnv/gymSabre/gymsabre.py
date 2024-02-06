@@ -173,7 +173,7 @@ class GymSabreEnv(gym.Env):
         money = self.money.item()
         reward = 0
         #setManifest = False # Flag to check if a manifest had been set
-        spendMoney = 0
+        totalCost = 0
         metrics = {}
 
         # Add manifest to client
@@ -247,7 +247,7 @@ class GymSabreEnv(gym.Env):
                 if allClientsHaveManifest:
                     
                     for cdn in self.cdns:
-                        spendMoney += cdn.distributeNetworkConditions(time)
+                        totalCost += cdn.distributeNetworkConditions(time)
 
                     # Let client do its move
                     for client in self.clients:
@@ -264,7 +264,7 @@ class GymSabreEnv(gym.Env):
                 self.time = np.array([time], dtype='int')
         
         # Collect information for reward     
-        reward = self.reward(metrics, spendMoney, time, action)
+        reward = self.reward(metrics, totalCost, time, action)
         observation = self._get_obs()
         info = self._get_info(reward)
         self.render()
@@ -282,7 +282,8 @@ class GymSabreEnv(gym.Env):
         - abortedStreaming: Sabre has aborted streaming.
         - delay: Sabre has a delay, because it buffered enough content already.
         '''
-        if len(metrics) == 0: return 0
+        if len(metrics) == 0: 
+            return 0
 
         self.rewardCounter += 1
 
