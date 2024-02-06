@@ -10,31 +10,32 @@ import time
 import multiprocessing
 from datetime import datetime
 
-
 argsCsOff = {
-    'contentSteering': False,
-    'ttl': 100,
-    'shufflePrice': 99,
-    'cdns': 4,
+    'contentSteering': True,
+    'cdns': 9,
+    'cdnLocationsFixed': [41583, 41749, 41915, 124583, 124749, 124915, 207583, 207749, 207915],
     'maxActiveClients': 20,
     'totalClients': 100,
+    'ttl': 30,
     'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',
-    'cdnLocationsFixed': [3333, 3366, 6633, 6666],
+    'gridWidth': 500, 
+    'gridHeight': 500,
     'discreteActionSpace': True,
     'bufferSize': 10,
     'filePrefix': 'CsOff_',
-    'verbose': False
+    'verbose': True
 }
 
 argsCsOn = {
     'contentSteering': True,
-    'ttl': 100,
-    'shufflePrice': 99,
-    'cdns': 4,
+    'cdns': 9,
+    'cdnLocationsFixed': [41583, 41749, 41915, 124583, 124749, 124915, 207583, 207749, 207915],
     'maxActiveClients': 20,
     'totalClients': 100,
+    'ttl': 30,
     'mpdPath': 'sabreEnv/sabre/data/movie_60s.json',
-    'cdnLocationsFixed': [3333, 3366, 6633, 6666],
+    'gridWidth': 500, 
+    'gridHeight': 500,
     'discreteActionSpace': True,
     'bufferSize': 10,
     'filePrefix': 'CsOn_',
@@ -66,53 +67,39 @@ def trainModel():
         def trainCsOff(args, timesteps, load=False):
             envs = createEnv(args)
             if load:
-                model = PPO.load('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
+                model = PPO.load('sabreEnv/scenarios/data/sc2/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
             else:
                 model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
-            model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
+            model.save('sabreEnv/scenarios/data/sc2/' + current_date + '/ppo_CsOff/policyCsOff_' + str(timesteps))
 
         # CS On
         def trainCsOn(args, timesteps, load=False):
             envs = createEnv(args)
             if load:
-                model = PPO.load('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
+                model = PPO.load('sabreEnv/scenarios/data/sc2/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
             else:
                 model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
-            model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
+            model.save('sabreEnv/scenarios/data/sc2/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
 
         trainCsOff(argsCsOff, timesteps, load=load)
         trainCsOn(argsCsOn, timesteps, load=load)
         load = True
-        total_timesteps += timesteps
-        break
+        total_timesteps += 100_000
 
 def evalModel(args, path):
     args['saveData'] = True
     env = gym.make('gymsabre-v0', **args)
     model = PPO.load(path, env=env, verbose=1)
     vec_env = model.get_env()
-    vec_env.seed(1)
     mean_reward, std_reward = evaluate_policy(model, vec_env, n_eval_episodes=10)
-    print(f'Mean reward: {mean_reward}, Std reward: {std_reward}')
 
-def createData(args, path='/Users/prabu/Desktop/100k/ppo_CsOff/policyCsOff_100000', steps=1_000):
-    args['saveData'] = True
-    args['filePrefix'] = 'sc1_csOff_'
-    env = gym.make('gymsabre-v0', **args)
-    model = PPO.load(path, env=env) 
-    vec_env = model.get_env()
-    obs = vec_env.seed(1)
-    for _ in range(steps):
-        action, _ = model.predict(obs, deterministic=True)
-        observation, reward, terminated, info = vec_env.step(action)
-        if terminated:
-            observation = vec_env.reset()
-    vec_env.env.close()
 
 if __name__ == '__main__':
+    '''
+    Scenario X: Environment with 9 CDNs, 100 acticeCients, 60s video, 30s TTL, 10 buffer size
+    '''
     trainModel()
-    pathCsOff = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOff/policyCsOff_1000'
-    pathCsOn = 'sabreEnv/scenarios/data/sc1/foo/ppo_CsOn/policyCsOn_1000'
-    evalModel(argsCsOff, pathCsOff)
-    evalModel(argsCsOn, pathCsOn)
-    createData(argsCsOff)
+    # pathCsOff = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOff_100000'
+    # pathCsOn = '/Users/prabu/Desktop/sc1/2024-02-04__08_58/ppo_CsOff/policyCsOn_100000'
+    # evalModel(argsCsOff, pathCsOff)
+    # evalModel(argsCsOn, pathCsOn)
