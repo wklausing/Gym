@@ -42,11 +42,11 @@ def train():
         else:
             model = PPO('MlpPolicy', envs).learn(progress_bar=True, total_timesteps=timesteps)
         model.save('sabreEnv/scenarios/data/sc1/' + current_date + '/ppo_CsOn/policyCsOn_' + str(timesteps))
-
-
+    
+    
     base_args = {
-        'ttl': 100,
-        'shufflePrice': 99,
+        'ttl': 30,
+        'shufflePrice': 60,
         'cdns': 4,
         'maxActiveClients': 20,
         'totalClients': 100,

@@ -6,7 +6,7 @@ env_name = 'gymsabre-v0'
 args = {
     'contentSteering': False,
     'ttl': 30,
-    'shufflePrice': 99,
+    'shufflePrice': 60,
     'cdns': 4,
     'maxActiveClients': 20,
     'totalClients': 100,
