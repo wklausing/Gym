@@ -10,13 +10,13 @@ def createEnv(args):
     env_name = 'gymsabre-v0'
     num_cpus = multiprocessing.cpu_count()
 
-    def make_env(env_id, seed):
+    def make_env(env_id):
         def _f():
-            env = gym.make(env_id, seed=seed, **args)
+            env = gym.make(env_id, **args)
             return env
         return _f
 
-    envs = [make_env(env_name, seed) for seed in range(num_cpus)]
+    envs = [make_env(env_name) for _ in range(num_cpus)]
     envs = SubprocVecEnv(envs)
     return envs
 
@@ -70,7 +70,7 @@ def train():
     }
 
     trainCsOff(argsCsOff, timesteps)
-    #trainCsOn(argsCsOn, timesteps)
+    trainCsOn(argsCsOn, timesteps)
 
 if __name__ == '__main__':
     train()
