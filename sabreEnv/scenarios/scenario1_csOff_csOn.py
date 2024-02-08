@@ -22,7 +22,7 @@ def createEnv(args):
 
 def train():
     current_date = datetime.now().strftime("%Y-%m-%d__%H_%M")
-    timesteps = 100_000
+    timesteps = 10_000
     
         
     # CS off
@@ -54,8 +54,7 @@ def train():
         'cdnLocationsFixed': [3333, 3366, 6633, 6666],
         'discreteActionSpace': False,
         'bufferSize': 25,
-        'clientAppearingMode': 'random',
-        'maxTime': 2_000
+        'clientAppearingMode': 'random'
     }
 
     argsCsOff = {
