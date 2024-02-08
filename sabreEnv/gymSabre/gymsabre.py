@@ -123,6 +123,10 @@ class GymSabreEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
+        self.priceRng = np.random.default_rng(seed)
+        self.cdnLocationRng = np.random.default_rng(seed)
+        self.clientLocationRng = np.random.default_rng(seed)
+
         # For recordings
         self.data = []
         self.stepCounter = 0
@@ -143,17 +147,18 @@ class GymSabreEnv(gym.Env):
         filtered_fixed_locations = [loc for loc in self.cdnLocationsFixed if 0 <= loc < self.gridSize]
         remaining_count = self.cdnCount - len(filtered_fixed_locations)
         if remaining_count > 0:
-            random_locations = self.np_random.integers(0, self.gridSize, size=remaining_count, dtype=int)
+            random_locations = self.cdnLocationRng.integers(0, self.gridSize, size=remaining_count, dtype=int)
             self.cdnLocations = filtered_fixed_locations + list(random_locations)
         else:
             self.cdnLocations = filtered_fixed_locations
 
         #self.cdnLocations = self.np_random.integers(0, self.gridSize, size=self.cdnCount, dtype=int)
-        self.cdnPrices = [round(self.np_random.uniform(0.02, 0.07), 2) for _ in range(self.cdnCount)]
+        self.cdnPrices = [round(self.priceRng.uniform(0.02, 0.07), 3) for _ in range(self.cdnCount)]
         self.cdns = []
         for e in range(self.cdnCount):
             reliable = self.cdnReliable[e] if e < len(self.cdnReliable) and e >= 0 else 100
-            self.cdns.append(CDN(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e], bandwidth_kbps=self.cdnBandwidth, reliable=reliable, random=self.np_random))
+            self.cdns.append(CDN(self.util, e, self.cdnLocations[e].item(), self.cdnPrices[e], \
+                                 bandwidth_kbps=self.cdnBandwidth, reliable=reliable, random=self.np_random))
 
         # Reset clients
         self.clients = []
@@ -196,7 +201,7 @@ class GymSabreEnv(gym.Env):
             # Shuffle prices
             if self.time > 0 and self.time % self.shufflePrice == 0:
                 oldPrices = self.cdnPrices
-                self.cdnPrices = np.round(self.np_random.uniform(0.02, 0.07, size=self.cdnCount), 2).tolist()
+                self.cdnPrices = [round(self.priceRng.uniform(0.02, 0.07), 3) for _ in range(self.cdnCount)]
                 for i, cdn in enumerate(self.cdns):
                     cdn.price = round(self.cdnPrices[i], 2)
                 gym.logger.info(f'Prices shuffled: {oldPrices} -> {self.cdnPrices}')
@@ -204,12 +209,11 @@ class GymSabreEnv(gym.Env):
             # Shuffle network conditions of CDNs
             if self.time > 0 and self.time % self.shuffleBandwidth == 0:
                 oldBandwidth = [cdn.bandwidth_kbps for cdn in self.cdns]
-                newCdnBandwidth = [np.random.randint(0, self.bandwidthToShuffle) for _ in range(self.cdnCount)]
+                newCdnBandwidth = [self.np_random.randint(0, self.bandwidthToShuffle) for _ in range(self.cdnCount)]
                 for i, cdn in enumerate(self.cdns):
                     cdn.bandwidth_kbps = self.cdnBandwidthOriginal[i] + newCdnBandwidth[i]
                 actualBandwidth = [cdn.bandwidth_kbps for cdn in self.cdns]    
-                gym.logger.info(f'Bandwidth shuffled: {oldBandwidth} -> {actualBandwidth}')      
-                pass          
+                gym.logger.info(f'Bandwidth shuffled: {oldBandwidth} -> {actualBandwidth}')   
 
             # An episode is done when the CP the last step is reached, or when all clients are done.
             allClientsDone = all(not client.alive for client in self.clients) and self.totalClients <= 0
@@ -217,10 +221,7 @@ class GymSabreEnv(gym.Env):
                 gym.logger.info('All clients done.')
             elif self.time >= self.maxTime:
                 gym.logger.info('Maximal time is reached.')
-            terminated = allClientsDone# or self.time >= self.maxTime
-
-            if terminated:
-                pass
+            terminated = allClientsDone or self.time >= self.maxTime
 
             # Saving data
             clients_to_remove = []
@@ -273,6 +274,7 @@ class GymSabreEnv(gym.Env):
         return observation, reward, terminated, False, info
     
     timeBefore = 0
+    enteredReward = 1
     def reward(self, metrics, totalCost, time, action):
         '''
         Possible returns from Sabre:
@@ -282,8 +284,11 @@ class GymSabreEnv(gym.Env):
         - abortedStreaming: Sabre has aborted streaming.
         - delay: Sabre has a delay, because it buffered enough content already.
         '''
-        if len(metrics) == 0: 
-            return 0
+        # if len(metrics) == 0: 
+        #     return 0
+
+        if totalCost != 0:
+            self.enteredReward += 1 # How many times did we got here
 
         self.rewardCounter += 1
 
@@ -300,11 +305,14 @@ class GymSabreEnv(gym.Env):
             elif metric['status'] == 'abortedStreaming':
                 abortPenalty += 1
 
-        avgCost = totalCost / (time - self.timeBefore)
+        avgCost = totalCost / (time - self.timeBefore) if (time - self.timeBefore) != 0 else 0
         costsNorm = self._determineNormalizedPrices(self.cdnPrices, avgCost)
 
         qoeNorm = qoeNorm / qoeCount if qoeCount > 0 else 0
-        reward = qoeNorm * self.weightQoE - costsNorm * self.weightCost - abortPenalty * self.weightAbort
+        reward = qoeNorm * self.enteredReward * self.weightQoE - costsNorm * self.weightCost - abortPenalty * self.weightAbort
+        if qoeNorm != 0 and totalCost != 0:
+            self.enteredReward = 1 # To balance out the reward
+
 
         # Collect data for CP graphs
         if self.saveData:
@@ -320,9 +328,6 @@ class GymSabreEnv(gym.Env):
             self.cpData = pd.concat([self.cpData, pd.DataFrame([newRow])], ignore_index=True)
 
         self.timeBefore=time
-
-        if reward > 20 or reward < -10:
-            pass
 
         if self.verbose:
             print('Reward:', reward, ' QoE_norm:', qoeNorm, ' Costs_norm:', costsNorm, ' Aborts:', abortPenalty, ' Time:', time, ' Step:', self.stepCounter)
@@ -346,7 +351,7 @@ class GymSabreEnv(gym.Env):
                     x_target,y_target = x,y
                 else:
                     x_target,y_target = self._get_coordinates(c.cdn.location, self.gridWidth)
-                newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id':id, 'type': 'Client', \
+                newRow = {'episode': self.episodeCounter, 'step': self.stepCounter, 'id': id, 'type': 'Client', \
                           'x': x, 'y': y, 'x_target': x_target, 'y_target': y_target, 'alive': c.alive}
                 self.renderData = pd.concat([self.renderData, pd.DataFrame([newRow])], ignore_index=True)
 
@@ -413,17 +418,17 @@ class GymSabreEnv(gym.Env):
         elif mode == 'random':
             maxClients = self.maxActiveClients-len(self.clients)
             if self.enterClientAdderFirstTime:
-                self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
-                self.randomClientMinCount = self.np_random.integers(1, self.randomClientCount, dtype=int)
+                self.randomClientCount = self.clientLocationRng.integers(2, maxClients, dtype=int)
+                self.randomClientMinCount = self.clientLocationRng.integers(1, self.randomClientCount, dtype=int)
                 for _ in range(self.randomClientCount):
                     self._addClient()
                 self.enterClientAdderFirstTime = False
             elif self.randomClientMinCount >= len(self.clients):
                 if maxClients > 2:
-                    self.randomClientCount = self.np_random.integers(2, maxClients, dtype=int)
+                    self.randomClientCount = self.clientLocationRng.integers(2, maxClients, dtype=int)
                 else:
                     self.randomClientCount = 2
-                self.randomClientMinCount = self.np_random.integers(1, self.randomClientCount, dtype=int)
+                self.randomClientMinCount = self.clientLocationRng.integers(1, self.randomClientCount, dtype=int)
                 for _ in range(self.randomClientCount):
                     self._addClient()
         elif mode == 'parabolic':
@@ -450,7 +455,7 @@ class GymSabreEnv(gym.Env):
         gym.logger.info('Add client %s', self.clientIDs)
         if self.totalClients <= 0: return
 
-        location = self.np_random.integers(0, self.gridSize, dtype=int)
+        location = self.clientLocationRng.integers(0, self.gridSize, dtype=int)
         c = Client(self.clientIDs, location, self.cdns, util=self.util, \
                         contentSteering=self.contentSteering, ttl=self.ttl, bufferSize=self.bufferSize, \
                               maxActiveClients=self.maxActiveClients, mpdPath=self.manifest)
@@ -471,8 +476,8 @@ class GymSabreEnv(gym.Env):
         Determines the normalized prices of the CDNs. Used for reward function.
         '''
         max_value = sum(cdnPrices)
-        min_value = min(cdnPrices)
-        normalizedPrice = (price - min_value) / (max_value - min_value)
+        min_value = 0
+        normalizedPrice = price / max_value
         return normalizedPrice
     
     def _interpret_action(self, discrete_action, manifestLength, cdns):
@@ -487,6 +492,15 @@ class GymSabreEnv(gym.Env):
 
         return multi_discrete_action[::-1]
     
+    seedPrices = 1
+    def _newPrices(self):
+        '''
+        Shuffles the prices of the CDNs.
+        '''
+        np.random.uniform(0.02, 0.07)
+        for cdn in self.cdns:
+            cdn.price = round(self.np_random.uniform(0.02, 0.07), 3)
+
 
 if __name__ == "__main__":
     print('### Start ###')
