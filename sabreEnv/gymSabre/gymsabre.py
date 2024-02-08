@@ -288,7 +288,7 @@ class GymSabreEnv(gym.Env):
         #     return 0
 
         if totalCost != 0:
-            self.enteredReward += 1 # How many times did we got here
+            self.enteredReward += 0 # How many times did we got here
 
         self.rewardCounter += 1
 
