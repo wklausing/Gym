@@ -14,7 +14,7 @@ args = {
     'mpdPath': 'sabreEnv/sabre/data/movie_150s.json',
     'cdnLocationsFixed': [3333, 3366, 6633, 6666],
     'discreteActionSpace': False,
-    'bufferSize': 10,
+    'bufferSize': 25,
     'verbose': False,
     'saveData': True,
     'clientAppearingMode': 'random',
