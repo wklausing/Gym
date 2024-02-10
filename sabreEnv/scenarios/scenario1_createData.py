@@ -50,13 +50,13 @@ env.close()
 
 
 args['filePrefix'] = 'CsOff_'
-pathCsOff = '/Users/prabu/Desktop/2024-02-07__23_13/ppo_CsOff/policyCsOff_100000'
+pathCsOff = '/Users/prabu/Desktop/2024-02-08__19_49/ppo_CsOff/policyCsOff_10000'
 model = PPO.load(pathCsOff) 
-env = gym.make(env_name, **args)
+env = gym.make(env_name, **args, max_episode_steps=1_000)
 seed = 42
 obs, _ = env.reset(seed=seed)
 for _ in range(1_000):
-    action, _ = model.predict(obs, deterministic=True)
+    action, _ = model.predict(obs, deterministic=False)
     observation, reward, terminated, truncated, info = env.step(action)
     if terminated or truncated:
         seed += 1
@@ -66,13 +66,13 @@ env.close()
 
 args['contentSteering'] = True
 args['filePrefix'] = 'CsOn_'
-pathCsOn = '/Users/prabu/Desktop/2024-02-07__23_13/ppo_CsOn/policyCsOn_100000'
+pathCsOn = '/Users/prabu/Desktop/2024-02-08__19_49/ppo_CsOn/policyCsOn_10000'
 model = PPO.load(pathCsOn) 
-env = gym.make(env_name, **args)
+env = gym.make(env_name, **args, max_episode_steps=1_000)
 seed = 42
 obs, _ = env.reset(seed=seed)
 for _ in range(1_000):
-    action, _ = model.predict(obs, deterministic=True)
+    action, _ = model.predict(obs, deterministic=False)
     observation, reward, terminated, truncated, info = env.step(action)
     if terminated or truncated:
         seed += 1

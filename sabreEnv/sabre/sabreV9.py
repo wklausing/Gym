@@ -670,37 +670,10 @@ class Sabre():
             'total_reaction_time': self.util.total_reaction_time / 1000,
             'estimate': self.estimate_average,
         }
-
-        # foo1= self.util.total_play_time
-        # foo2 = self.util.manifest.segment_time
-        # to_time_average = 1 / (self.util.total_play_time / self.util.manifest.segment_time)
-
-        # foo3 = self.util.played_utility
-        # foo4= self.gamma_p
-        # foo5 = self.util.rebuffer_time
-        # foofinal = to_time_average * (self.util.played_utility - self.gamma_p * self.util.rebuffer_time / self.util.manifest.segment_time)
         
         if self.util.verbose:
             print(results_dict)
-
-        foo = self.next_segment
-        qoe=0
-        if foo > 0:
-            self.time_average_played_bitrateList.append(results_dict['time_average_played_bitrate'])
-            quality_std_dev = np.std(self.time_average_played_bitrateList)
-
-            # Calculate QoE metric
-            if results_dict['total_rebuffer_events'] > 0:
-                first_part = (7/8) * max((math.log(results_dict['total_rebuffer_events']) / 6) + 1, 0)
-            else:
-                first_part = 0 
-            second_part = (1/8) * (min(results_dict['time_average_rebuffer_events'], 15) / 15)
-            F_ij = first_part + second_part
-
-            qoe = 5.67 * results_dict['time_average_played_bitrate'] / self.util.manifest.bitrates[-1] \
-                - 6.72 * quality_std_dev / self.util.manifest.bitrates[-1] + 0.17 - 4.95 * F_ij
-
-        results_dict['qoe'] = qoe
+            
         return results_dict
 
     def saveMetrics(self, metrics, filename='sabreEnv/sabre/data/visualizationData/sabreMetrics.csv'):

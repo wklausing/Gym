@@ -137,9 +137,16 @@ class Client():
 
             if metrics['status'] in ['completed', 'downloadedSegment']:
                 score = metrics['time_average_score']
-                normalized_value = (score - self.minQoE) / (self.maxQoE - self.minQoE)
-                metrics['normalized_qoe'] = normalized_value
-                if normalized_value > self.maxQoE:
+                if score == 0:
+                    metrics['normalized_qoe'] = 0
+                else:
+                    normalized_value = (score - self.minQoE) / (self.maxQoE - self.minQoE)
+                    metrics['normalized_qoe'] = normalized_value
+                    if normalized_value > self.maxQoE:
+                        pass
+                    elif normalized_value < 0:
+                        pass
+                if metrics['normalized_qoe'] < 0:
                     pass
                 
             self.status = metrics['status']

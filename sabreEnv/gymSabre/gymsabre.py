@@ -27,7 +27,7 @@ class GymSabreEnv(gym.Env):
 
     def __init__(self, render_mode=None, gridWidth=100, gridHeight=100, \
                     cdns=4, cdnLocationsFixed=[3333, 3366, 6633, 6666], cdnBandwidth=5000, cdnReliable=[100], \
-                    maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLenght=4, \
+                    maxActiveClients=30, totalClients=100, clientAppearingMode='random', manifestLength=4, \
                     bufferSize=10, mpdPath='sabreEnv/sabre/data/movie_30s.json', \
                     contentSteering=False, ttl=500, maxTime=1_000, \
                     saveData=True, savingPath='sabreEnv/gymSabre/data/', filePrefix='D', \
@@ -44,7 +44,7 @@ class GymSabreEnv(gym.Env):
         assert all(0 <= value <= 100 for value in cdnReliable) or not cdnReliable, "List must be empty or contain values between 0 and 100"
         assert maxActiveClients > 0, 'maxActiveClients must be greater than 0.'
         assert totalClients > 0, 'totalClients must be greater than 0.'
-        assert manifestLenght > 0, 'manifestLenght must be greater than 0.'
+        assert manifestLength > 0, 'manifestLenght must be greater than 0.'
         assert maxActiveClients <= totalClients, 'totalClients must be greater or equal to maxActiveClients.'
         assert ttl >= 0, 'ttl must be greater or equal than 0.'
         assert maxTime > 0, 'maxTime must be greater than 0.'
@@ -96,7 +96,7 @@ class GymSabreEnv(gym.Env):
         self.ttl = ttl
         self.bufferSize = bufferSize
         self.manifest = self.util.load_json(mpdPath)
-        self.manifestLength = manifestLenght
+        self.manifestLength = manifestLength
 
         # Observation space for CP agent. Contains location of clients, location of edge-servers, pricing of edge-server, and time in seconds.        
         # self.observation_space = spaces.Dict(
@@ -116,9 +116,9 @@ class GymSabreEnv(gym.Env):
  
         # Action space for CP agent. Contains buy contigent and manifest for clients.
         if discreteActionSpace == True:
-            self.action_space = gym.spaces.Discrete(int(pow(cdns, manifestLenght)))
+            self.action_space = gym.spaces.Discrete(int(pow(cdns, manifestLength)))
         else:
-            self.action_space = gym.spaces.MultiDiscrete(manifestLenght * [cdns])
+            self.action_space = gym.spaces.MultiDiscrete(manifestLength * [cdns])
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -476,7 +476,6 @@ class GymSabreEnv(gym.Env):
         Determines the normalized prices of the CDNs. Used for reward function.
         '''
         max_value = sum(cdnPrices)
-        min_value = 0
         normalizedPrice = price / max_value
         return normalizedPrice
     
